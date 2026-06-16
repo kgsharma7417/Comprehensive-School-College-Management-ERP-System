@@ -19,6 +19,13 @@ export const LoginPage = () => {
   const { login, userRole } = useAuth();
   const navigate = useNavigate();
 
+  const invalidInput = Boolean(error);
+  const inputClass = `w-full bg-slate-950/50 border rounded-xl py-3 pl-11 pr-4 text-sm text-slate-100 placeholder-slate-600 outline-none transition-all ${
+    invalidInput
+      ? "border-rose-500 focus:border-rose-400 focus:ring-rose-500/20"
+      : "border-slate-800 focus:border-indigo-500 focus:ring-indigo-500"
+  }`;
+
   const redirectByRole = useCallback(
     (role) => {
       if (role === "admin") navigate("/admin");
@@ -87,10 +94,12 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans relative">
+    <div className="min-h-screen bg-[#0f172a] text-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans relative overflow-hidden">
       {/* Background Orbs */}
-      <div className="absolute top-10 left-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-      <div className="absolute bottom-10 right-10 w-80 h-80 bg-emerald-500/5 rounded-full blur-[90px] pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.14),_transparent_28%)]"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_25%)]"></div>
+      <div className="absolute top-6 left-1/2 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-indigo-500/5 blur-3xl" />
+      <div className="absolute bottom-6 right-8 h-[260px] w-[260px] rounded-full bg-amber-400/10 blur-3xl" />
 
       {/* Floating Home Back Button */}
       <Link
@@ -102,73 +111,102 @@ export const LoginPage = () => {
 
       {/* Split Card */}
       <div className="w-full max-w-4xl bg-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-800 overflow-hidden grid grid-cols-1 md:grid-cols-2 shadow-2xl">
-        {/* Left Side: Brand Promo (Hidden on mobile) */}
-        <div className="hidden md:flex flex-col justify-between p-10 bg-gradient-to-br from-indigo-950/80 via-slate-900 to-slate-900 border-r border-slate-800 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent pointer-events-none"></div>
+        {/* Left Side: School Welcome Panel (Hidden on mobile) */}
+        <div className="hidden md:flex flex-col justify-between p-10 bg-slate-950/95 border-r border-slate-800 relative">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_35%)] pointer-events-none" />
+          <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-slate-950 to-transparent opacity-80 pointer-events-none" />
 
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="bg-indigo-600 p-2.5 rounded-xl text-white shadow-lg">
-              <GraduationCap className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-base font-bold text-white tracking-tight">
-                Shree H.S. Model
-              </span>
-              <span className="text-xs block text-slate-450">
-                Inter College Portal
-              </span>
-            </div>
-          </div>
-
-          <div className="my-auto py-12 relative z-10">
-            <h2 className="text-3xl font-extrabold text-white leading-tight mb-4">
-              Unified Portal for Academic Success
-            </h2>
-            <p className="text-slate-400 text-sm leading-relaxed mb-6">
-              Connect teachers, manage course files, trace student fee ledgers,
-              and streamline daily school tasks from one secure, glassmorphic
-              workspace.
-            </p>
-            <div className="flex gap-4 items-center">
-              <div className="flex -space-x-2">
-                <div className="w-8 h-8 rounded-full bg-slate-700 border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold">
-                  A
-                </div>
-                <div className="w-8 h-8 rounded-full bg-indigo-600 border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold">
-                  T
-                </div>
-                <div className="w-8 h-8 rounded-full bg-emerald-600 border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold">
-                  P
-                </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-slate-200/10 p-3 rounded-2xl text-slate-50 shadow-sm border border-slate-800">
+                <GraduationCap className="w-6 h-6" />
               </div>
-              <span className="text-xs text-slate-400 font-medium">
-                Multi-role support enabled
-              </span>
+              <div>
+                <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
+                  Shree H.S. Model
+                </p>
+                <p className="text-xs text-amber-300 font-semibold">
+                  Inter College, Lucknow
+                </p>
+              </div>
+            </div>
+
+            <h2 className="text-3xl font-extrabold text-white leading-tight mb-4">
+              Welcome Back to Your School Portal
+            </h2>
+            <p className="text-slate-400 text-sm leading-relaxed mb-8">
+              Secure login for teachers, parents, and administrators with fast
+              access to attendance, timetable, fees, and campus notices.
+            </p>
+
+            <div className="space-y-4">
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
+                <p className="text-sm font-semibold text-white">
+                  Attendance Tracker
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Monitor student attendance and daily class roll calls.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
+                <p className="text-sm font-semibold text-white">
+                  Weekly Timetable
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  View full week schedules for every class and subject.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
+                <p className="text-sm font-semibold text-white">
+                  Fee & Notices
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Keep parents informed with fee status and school
+                  announcements.
+                </p>
+              </div>
             </div>
           </div>
 
-          <p className="text-xs text-slate-500 relative z-10">
-            Secured using Firebase Standard Encryption.
-          </p>
+          <div className="relative z-10 rounded-3xl border border-slate-800 bg-slate-950/90 p-4 text-xs text-slate-400">
+            <p className="font-semibold text-slate-100 mb-2">Campus Access</p>
+            <p className="leading-6">
+              One login for every campus role: admin, web admin, teacher, and
+              parent. Designed for trusted school use.
+            </p>
+          </div>
         </div>
 
         {/* Right Side: Login Form */}
         <div className="p-8 sm:p-10 flex flex-col justify-center">
           <div className="mb-8">
-            <h3 className="text-2xl font-bold text-white">Sign In</h3>
-            <p className="text-sm text-slate-400 mt-1">
-              Enter your ERP portal credentials
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/5 px-3 py-1 text-xs uppercase tracking-[0.3em] text-amber-300">
+              School Portal
+            </div>
+            <h3 className="text-3xl font-extrabold text-white mt-4">
+              Welcome to the Campus Dashboard
+            </h3>
+            <p className="text-sm text-slate-400 mt-3 leading-relaxed">
+              Log in with your school-issued credentials to access timetables,
+              attendance, notices, and academic reports.
             </p>
           </div>
 
           {error && (
-            <div className="mb-6 flex items-start gap-3 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm animate-shake">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <span>{error}</span>
+            <div className="mb-6 rounded-3xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100 shadow-sm shadow-rose-500/10">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-sm">
+                  <AlertCircle className="w-4 h-4" />
+                </span>
+                <div>
+                  <p className="font-semibold text-rose-100">Login failed</p>
+                  <p className="mt-1 text-[13px] text-rose-200">{error}</p>
+                </div>
+              </div>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                 Email Address
@@ -183,7 +221,7 @@ export const LoginPage = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@school.com"
                   required
-                  className="w-full bg-slate-950/50 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className={inputClass}
                 />
               </div>
             </div>
@@ -202,7 +240,7 @@ export const LoginPage = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-slate-950/50 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className={inputClass}
                 />
               </div>
             </div>
@@ -210,7 +248,7 @@ export const LoginPage = () => {
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-600/10 flex items-center justify-center gap-2 text-sm"
+              className="w-full rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:from-indigo-400 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-70 flex items-center justify-center gap-2"
             >
               {loginLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -223,15 +261,16 @@ export const LoginPage = () => {
           </form>
 
           <div className="mt-8 pt-8 border-t border-slate-800 text-center">
-            <p className="text-sm text-slate-400 mb-4">
-              Admin and Web Admin access must be created through the signup
-              flow. Direct quick-login buttons are disabled.
+            <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+              Admin and Web Admin accounts must be registered through the school
+              signup flow. For teacher or parent access, use the credentials
+              provided by administration.
             </p>
             <Link
               to="/signup"
-              className="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition"
+              className="inline-flex items-center justify-center rounded-2xl bg-amber-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-amber-400 transition"
             >
-              Create Admin / Web Admin Account
+              Register Admin / Web Admin
             </Link>
           </div>
         </div>
