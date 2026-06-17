@@ -22,6 +22,18 @@ import {
 } from "lucide-react";
 import { db, collection, getDocs, query, where, isMockMode } from "../firebase";
 
+const SUBJECTS = [
+  "Mathematics",
+  "Science",
+  "English",
+  "Hindi",
+  "Social Studies",
+  "Computer",
+  "Physical Education",
+];
+
+const EXAMS = ["Mid-Term", "Final", "Unit Test", "Assignment"];
+
 export const ParentDashboard = () => {
   const { userData, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
@@ -346,6 +358,52 @@ export const ParentDashboard = () => {
   const attendanceRate =
     totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 100;
 
+  const totalPresents = presentDays;
+  const totalAbsents = attendanceHistory.filter((d) => d.status === "Absent").length;
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const handlePrevMonth = () => {
+    setCalendarMonth((prev) => {
+      if (prev === 0) {
+        setCalendarYear((y) => y - 1);
+        return 11;
+      }
+      return prev - 1;
+    });
+  };
+
+  const handleNextMonth = () => {
+    setCalendarMonth((prev) => {
+      if (prev === 11) {
+        setCalendarYear((y) => y + 1);
+        return 0;
+      }
+      return prev + 1;
+    });
+  };
+
+  const calendarCells = (() => {
+    const cells = [];
+    const firstDay = new Date(calendarYear, calendarMonth, 1).getDay();
+    const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) {
+      cells.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      cells.push(i);
+    }
+    return cells;
+  })();
+
+  const filteredHistory = attendanceHistory.filter((day) => {
+    const matchesSearch = day.date.toLowerCase().includes(attendanceSearch.toLowerCase());
+    const matchesFilter = attendanceFilter === "All" || day.status === attendanceFilter;
+    return matchesSearch && matchesFilter;
+  });
+
   const getUpdatedFees = () => {
     const baseFees = studentInfo?.fees || {
       total: 50000,
@@ -398,6 +456,9 @@ export const ParentDashboard = () => {
   };
 
   const feeStatus = getFeeStatus();
+  const monthlyFee = fees.breakdown?.monthlyTuition || 3000;
+  const monthName = new Date().toLocaleDateString("en-US", { month: "long" });
+  const currentMonthDue = fees.balance > 0 ? Math.min(fees.balance, monthlyFee) : 0;
 
   const triggerNotification = (message, type = "success") => {
     setNotification({ message, type });
