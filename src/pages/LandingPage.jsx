@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -611,49 +611,253 @@ const STYLES = `
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const SLIDES = [
-  { src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop", caption: "🏫 Shree H.S. Model High School — Agra" },
-  { src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop", caption: "📚 Modern Classrooms for Quality Learning" },
-  { src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=1200&auto=format&fit=crop", caption: "🔬 Science Laboratories — Hands-on Education" },
-  { src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1200&auto=format&fit=crop", caption: "⚽ Sports Ground — All-Round Development" },
+  {
+    src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
+    caption: "🏫 Shree H.S. Model High School — Agra",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop",
+    caption: "📚 Modern Classrooms for Quality Learning",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=1200&auto=format&fit=crop",
+    caption: "🔬 Science Laboratories — Hands-on Education",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1200&auto=format&fit=crop",
+    caption: "⚽ Sports Ground — All-Round Development",
+  },
 ];
 
 const NOTICES = [
-  { day: "20", mon: "Jun", title: "Class 10 & 12 Final Exam Schedule Released", desc: "UP Board final examination timetable for Class 10 and 12 has been released. Students are advised to collect their admit cards from the school office by 25 June.", tag: "lp-tag-exam", tagLabel: "📝 Exam" },
-  { day: "15", mon: "Jun", title: "Independence Day Celebration – 15 August", desc: "All students and staff are requested to be present on 15th August at 7:00 AM for flag hoisting ceremony. Cultural programs will follow. White uniform is compulsory.", tag: "lp-tag-event", tagLabel: "🎉 Event" },
-  { day: "10", mon: "Jun", title: "Parent-Teacher Meeting – Class 6 to 10", desc: "A Parent-Teacher meeting for classes 6 to 10 will be held on 22nd June (Saturday) between 9 AM – 1 PM. Parents are requested to attend and collect their child's progress report.", tag: "lp-tag-meeting", tagLabel: "👨‍👩‍👧 PTM" },
-  { day: "05", mon: "Jun", title: "Half-Yearly Holiday Notice", desc: "School will remain closed from 20 June to 30 June on account of summer vacation. Classes will resume on 1st July.", tag: "lp-tag-holiday", tagLabel: "🌿 Holiday" },
-  { day: "01", mon: "Jun", title: "Admission Open for 2025–26 Academic Session", desc: "Admissions are now open for Class 1 to Class 11. Contact the school office between 9 AM to 2 PM on working days. Documents: Birth certificate, marksheet, Aadhar card.", tag: "lp-tag-event", tagLabel: "📌 Admissions" },
+  {
+    day: "20",
+    mon: "Jun",
+    title: "Class 10 & 12 Final Exam Schedule Released",
+    desc: "UP Board final examination timetable for Class 10 and 12 has been released. Students are advised to collect their admit cards from the school office by 25 June.",
+    tag: "lp-tag-exam",
+    tagLabel: "📝 Exam",
+  },
+  {
+    day: "15",
+    mon: "Jun",
+    title: "Independence Day Celebration – 15 August",
+    desc: "All students and staff are requested to be present on 15th August at 7:00 AM for flag hoisting ceremony. Cultural programs will follow. White uniform is compulsory.",
+    tag: "lp-tag-event",
+    tagLabel: "🎉 Event",
+  },
+  {
+    day: "10",
+    mon: "Jun",
+    title: "Parent-Teacher Meeting – Class 6 to 10",
+    desc: "A Parent-Teacher meeting for classes 6 to 10 will be held on 22nd June (Saturday) between 9 AM – 1 PM. Parents are requested to attend and collect their child's progress report.",
+    tag: "lp-tag-meeting",
+    tagLabel: "👨‍👩‍👧 PTM",
+  },
+  {
+    day: "05",
+    mon: "Jun",
+    title: "Half-Yearly Holiday Notice",
+    desc: "School will remain closed from 20 June to 30 June on account of summer vacation. Classes will resume on 1st July.",
+    tag: "lp-tag-holiday",
+    tagLabel: "🌿 Holiday",
+  },
+  {
+    day: "01",
+    mon: "Jun",
+    title: "Admission Open for 2025–26 Academic Session",
+    desc: "Admissions are now open for Class 1 to Class 11. Contact the school office between 9 AM to 2 PM on working days. Documents: Birth certificate, marksheet, Aadhar card.",
+    tag: "lp-tag-event",
+    tagLabel: "📌 Admissions",
+  },
 ];
 
 const TEACHERS = [
-  { init: "RC", name: "Rang Bahadur Singh Chauhan", subject: "Principal", qual: "M.A., B.Ed · 25+ Years", exp: "Administration", bg: "linear-gradient(150deg,#1f2937,#14181f)" },
-  { init: "SK", name: "Smt. Sunita Kumari", subject: "Hindi", qual: "M.A. Hindi, B.Ed · 18 Years", exp: "Sr. Faculty", bg: "linear-gradient(150deg,#b85c38,#8f3f23)" },
-  { init: "RS", name: "Ramesh Kumar Sharma", subject: "Mathematics", qual: "M.Sc. Maths, B.Ed · 15 Years", exp: "Sr. Faculty", bg: "linear-gradient(150deg,#3f5a2a,#5a7a3e)" },
-  { init: "PV", name: "Dr. Priya Verma", subject: "Science / Biology", qual: "M.Sc., Ph.D, B.Ed · 12 Years", exp: "Sr. Faculty", bg: "linear-gradient(150deg,#5b3a7a,#7d52a8)" },
-  { init: "AK", name: "Anil Kumar Gupta", subject: "Physics", qual: "M.Sc. Physics, B.Ed · 14 Years", exp: "Sr. Faculty", bg: "linear-gradient(150deg,#1a5a6b,#2a7a8f)" },
-  { init: "NM", name: "Nirmala Mishra", subject: "English", qual: "M.A. English, B.Ed · 16 Years", exp: "Sr. Faculty", bg: "linear-gradient(150deg,#8f2d52,#b8447a)" },
-  { init: "VS", name: "Vijay Singh Yadav", subject: "Social Science", qual: "M.A., B.Ed · 11 Years", exp: "Faculty", bg: "linear-gradient(150deg,#8a5a06,#c47d0f)" },
-  { init: "KP", name: "Kavita Pandey", subject: "Sanskrit", qual: "M.A. Sanskrit, B.Ed · 9 Years", exp: "Faculty", bg: "linear-gradient(150deg,#2d3f8f,#4a5fc4)" },
+  {
+    init: "RC",
+    name: "Rang Bahadur Singh Chauhan",
+    subject: "Principal",
+    qual: "M.A., B.Ed · 25+ Years",
+    exp: "Administration",
+    bg: "linear-gradient(150deg,#1f2937,#14181f)",
+  },
+  {
+    init: "SK",
+    name: "Smt. Sunita Kumari",
+    subject: "Hindi",
+    qual: "M.A. Hindi, B.Ed · 18 Years",
+    exp: "Sr. Faculty",
+    bg: "linear-gradient(150deg,#b85c38,#8f3f23)",
+  },
+  {
+    init: "RS",
+    name: "Ramesh Kumar Sharma",
+    subject: "Mathematics",
+    qual: "M.Sc. Maths, B.Ed · 15 Years",
+    exp: "Sr. Faculty",
+    bg: "linear-gradient(150deg,#3f5a2a,#5a7a3e)",
+  },
+  {
+    init: "PV",
+    name: "Dr. Priya Verma",
+    subject: "Science / Biology",
+    qual: "M.Sc., Ph.D, B.Ed · 12 Years",
+    exp: "Sr. Faculty",
+    bg: "linear-gradient(150deg,#5b3a7a,#7d52a8)",
+  },
+  {
+    init: "AK",
+    name: "Anil Kumar Gupta",
+    subject: "Physics",
+    qual: "M.Sc. Physics, B.Ed · 14 Years",
+    exp: "Sr. Faculty",
+    bg: "linear-gradient(150deg,#1a5a6b,#2a7a8f)",
+  },
+  {
+    init: "NM",
+    name: "Nirmala Mishra",
+    subject: "English",
+    qual: "M.A. English, B.Ed · 16 Years",
+    exp: "Sr. Faculty",
+    bg: "linear-gradient(150deg,#8f2d52,#b8447a)",
+  },
+  {
+    init: "VS",
+    name: "Vijay Singh Yadav",
+    subject: "Social Science",
+    qual: "M.A., B.Ed · 11 Years",
+    exp: "Faculty",
+    bg: "linear-gradient(150deg,#8a5a06,#c47d0f)",
+  },
+  {
+    init: "KP",
+    name: "Kavita Pandey",
+    subject: "Sanskrit",
+    qual: "M.A. Sanskrit, B.Ed · 9 Years",
+    exp: "Faculty",
+    bg: "linear-gradient(150deg,#2d3f8f,#4a5fc4)",
+  },
 ];
 
-const SUBJECTS = ["Hindi", "English", "Mathematics", "Science", "Social Science", "Sanskrit", "Computer Science", "Physics", "Chemistry", "Biology", "History", "Geography", "Civics", "Economics", "Home Science"];
+const SUBJECTS = [
+  "Hindi",
+  "English",
+  "Mathematics",
+  "Science",
+  "Social Science",
+  "Sanskrit",
+  "Computer Science",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "History",
+  "Geography",
+  "Civics",
+  "Economics",
+  "Home Science",
+];
 
 const GALLERY = [
-  { src: "https://images.unsplash.com/photo-1591474200742-8e512e6f98f8?q=80&w=800&auto=format&fit=crop", caption: "📍 Main School Building" },
-  { src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=600&auto=format&fit=crop", caption: "🏫 Modern Classrooms" },
-  { src: "https://images.unsplash.com/photo-1603354350317-6f7aaa5911c5?q=80&w=600&auto=format&fit=crop", caption: "📚 School Library" },
-  { src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=800&auto=format&fit=crop", caption: "🔬 Science Laboratory" },
-  { src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=600&auto=format&fit=crop", caption: "⚽ Sports Ground" },
-  { src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=600&auto=format&fit=crop", caption: "🎭 Annual Cultural Program" },
+  {
+    src: "https://images.unsplash.com/photo-1591474200742-8e512e6f98f8?q=80&w=800&auto=format&fit=crop",
+    caption: "📍 Main School Building",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=600&auto=format&fit=crop",
+    caption: "🏫 Modern Classrooms",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1603354350317-6f7aaa5911c5?q=80&w=600&auto=format&fit=crop",
+    caption: "📚 School Library",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=800&auto=format&fit=crop",
+    caption: "🔬 Science Laboratory",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=600&auto=format&fit=crop",
+    caption: "⚽ Sports Ground",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=600&auto=format&fit=crop",
+    caption: "🎭 Annual Cultural Program",
+  },
 ];
 
+const NOTICE_TAGS = {
+  exam: { label: "📝 Exam", className: "lp-tag-exam" },
+  event: { label: "🎉 Event", className: "lp-tag-event" },
+  meeting: { label: "👨‍👩‍👧 PTM", className: "lp-tag-meeting" },
+  holiday: { label: "🌿 Holiday", className: "lp-tag-holiday" },
+};
+
+const DEFAULT_CONTENT = {
+  heroTitle: "Shree H.S. Model\nHigh School",
+  heroSubtitle:
+    "Nurturing minds and building character since 2001. A UP Board-affiliated school in Agra committed to academic excellence, moral values, and all-round development.",
+  heroImageUrl:
+    "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
+  ctaText: "Enquire for Admission →",
+  ctaSecondary: "Know Our School",
+  heroBadge: "Admissions Open 2025–26",
+  statsStudents: 1200,
+  statsFaculty: 95,
+  statsPassRate: 98,
+  statsYears: 23,
+  slides: [...SLIDES],
+  gallery: [...GALLERY],
+  notices: [...NOTICES],
+  whyCards: [
+    {
+      icon: "🏆",
+      title: "Academic Excellence",
+      desc: "Consistently 98%+ result in UP Board exams with top district rankers every year.",
+    },
+    {
+      icon: "🕉️",
+      title: "Moral Values",
+      desc: "Character building through daily prayers, Sanskrit shloka recitation, and Yoga sessions.",
+    },
+    {
+      icon: "🔬",
+      title: "Modern Labs",
+      desc: "Physics, Chemistry, Biology & Computer labs with modern equipment for hands-on learning.",
+    },
+    {
+      icon: "⚽",
+      title: "Sports & Arts",
+      desc: "Annual sports meet, cultural programs, drawing & elocution competitions — talent nurtured.",
+    },
+  ],
+  principalQuoteShort:
+    "Education is not merely about marks — it is about kindling the flame of curiosity, discipline, and humanity in every child. At Shree H.S. Model High School, we believe every student carries infinite potential.",
+  principalName: "Principal Rang Bahadur Singh Chauhan",
+  principalFull:
+    "It is with immense pride and humility that I address the Shree H.S. Model High School family. Since our founding in 2001, we have strived to create an environment where every child feels valued, challenged, and inspired. Our school is not merely a place of academic learning — it is a second home where students develop not only their intellect, but their character, resilience, and compassion.\n\nWe believe in the holistic development of each student — through rigorous academics, creative arts, physical education, and above all, the inculcation of strong moral values. Together, we will shape the leaders and citizens of tomorrow.",
+  managerName: "Dr. P.S. Chauhan",
+  managerFull:
+    "As the Manager of Shree H.S. Model High School, my commitment has always been to provide an institution that is accessible, affordable, and of the highest quality for the students of Agra. We have invested in modern classrooms, qualified teachers, and an environment that promotes curiosity and growth. Our students are our greatest achievement.",
+  contactAddress: "Shree H.S. Model High School, Agra, Uttar Pradesh – 282001",
+  contactPhone: "+91 562 234-5678",
+  contactPhoneAdmission: "+91 562 234-5679",
+  contactEmail: "info@shreehsmodelhs.edu.in",
+  contactHours: "Mon – Sat: 8:00 AM – 2:30 PM",
+};
+
 // ─── Hero Visual (image + mouse-tilt parallax + blended edges) ───────────────
-function HeroVisual() {
+function HeroVisual({ imageUrl }) {
   const stageRef = useRef(null);
   const frameRef = useRef(null);
   const rafRef = useRef(null);
   const target = useRef({ x: 0, y: 0 });
   const current = useRef({ x: 0, y: 0 });
+
+  // Cache-bust: add timestamp so browser never serves stale image
+  const imgSrc =
+    imageUrl +
+    (imageUrl && !imageUrl.startsWith("data:")
+      ? (imageUrl.includes("?") ? "&" : "?") + "_cb=" + Date.now()
+      : imageUrl);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -671,7 +875,7 @@ function HeroVisual() {
     };
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
-  }, []);
+  }, [imageUrl]);
 
   const handleMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -685,7 +889,11 @@ function HeroVisual() {
   };
 
   return (
-    <div className="lp-hero-visual" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+    <div
+      className="lp-hero-visual"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
       <div className="lp-hero-glow" />
       <div ref={stageRef} className="lp-hero-visual-stage">
         <div className="lp-hero-ring lp-ring-1" />
@@ -701,13 +909,20 @@ function HeroVisual() {
           <span
             key={i}
             className="lp-hero-particle"
-            style={{ top: p.top, left: p.left, width: p.size, height: p.size, animationDelay: `${i * 0.6}s` }}
+            style={{
+              top: p.top,
+              left: p.left,
+              width: p.size,
+              height: p.size,
+              animationDelay: `${i * 0.6}s`,
+            }}
           />
         ))}
 
         <div ref={frameRef} className="lp-hero-frame">
           <img
-            src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=900&auto=format&fit=crop"
+            key={imageUrl}
+            src={imageUrl}
             alt="Shree H.S. Model High School campus"
             loading="eager"
           />
@@ -716,11 +931,17 @@ function HeroVisual() {
 
         <div className="lp-hero-chip lp-chip-1">
           <div className="ic">🎓</div>
-          <div className="tx"><div className="v">23+ Years</div><div className="l">of Legacy</div></div>
+          <div className="tx">
+            <div className="v">23+ Years</div>
+            <div className="l">of Legacy</div>
+          </div>
         </div>
         <div className="lp-hero-chip lp-chip-2">
           <div className="ic">🏆</div>
-          <div className="tx"><div className="v">98%</div><div className="l">Board Pass Rate</div></div>
+          <div className="tx">
+            <div className="v">98%</div>
+            <div className="l">Board Pass Rate</div>
+          </div>
         </div>
       </div>
     </div>
@@ -728,34 +949,61 @@ function HeroVisual() {
 }
 
 // ─── Image Slider ─────────────────────────────────────────────────────────────
-function ImageSlider() {
+function ImageSlider({ slides = SLIDES }) {
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
 
   const go = (idx) => {
-    setCurrent((idx + SLIDES.length) % SLIDES.length);
+    setCurrent((idx + slides.length) % slides.length);
   };
 
   useEffect(() => {
-    timerRef.current = setInterval(() => setCurrent(c => (c + 1) % SLIDES.length), 4000);
+    timerRef.current = setInterval(
+      () => setCurrent((c) => (c + 1) % slides.length),
+      4000,
+    );
     return () => clearInterval(timerRef.current);
-  }, []);
+  }, [slides.length]);
 
   return (
     <div className="lp-slider">
-      <div className="lp-slider-track" style={{ transform: `translateX(-${current * 100}%)` }}>
-        {SLIDES.map((s, i) => (
+      <div
+        className="lp-slider-track"
+        style={{ transform: `translateX(-${current * 100}%)` }}
+      >
+        {slides.map((s, i) => (
           <div key={i} className="lp-slide">
-            <img src={s.src} alt={s.caption} loading={i === 0 ? "eager" : "lazy"} />
+            <img
+              src={s.src}
+              alt={s.caption}
+              loading={i === 0 ? "eager" : "lazy"}
+            />
             <div className="lp-slide-caption">{s.caption}</div>
           </div>
         ))}
       </div>
-      <button className="lp-slider-btn prev" onClick={() => go(current - 1)} aria-label="Previous">&#8592;</button>
-      <button className="lp-slider-btn next" onClick={() => go(current + 1)} aria-label="Next">&#8594;</button>
+      <button
+        className="lp-slider-btn prev"
+        onClick={() => go(current - 1)}
+        aria-label="Previous"
+      >
+        &#8592;
+      </button>
+      <button
+        className="lp-slider-btn next"
+        onClick={() => go(current + 1)}
+        aria-label="Next"
+      >
+        &#8594;
+      </button>
       <div className="lp-slider-dots">
-        {SLIDES.map((_, i) => (
-          <button key={i} className={`lp-slider-dot${i === current ? " active" : ""}`} onClick={() => go(i)} aria-label={`Slide ${i + 1}`} />
+        {slides.map((_, i) => (
+          <button
+            key={i}
+            className={`lp-slider-dot${i === current ? " active" : ""}`}
+            onClick={() => go(i)}
+            aria-label={`Slide ${i + 1}`}
+          />
         ))}
       </div>
     </div>
@@ -768,6 +1016,54 @@ export const LandingPage = () => {
   const [activeSection, setActiveSection] = useState("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [formStatus, setFormStatus] = useState("");
+  const [content, setContent] = useState(DEFAULT_CONTENT);
+
+  const loadContentFromStorage = useCallback(() => {
+    try {
+      const saved = localStorage.getItem("school_erp_landing_content_v2");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setContent((c) => {
+          // Only update if actually changed (prevents unnecessary re-renders)
+          if (
+            JSON.stringify(c) ===
+            JSON.stringify({ ...DEFAULT_CONTENT, ...parsed })
+          )
+            return c;
+          return { ...DEFAULT_CONTENT, ...parsed };
+        });
+      }
+    } catch (error) {
+      console.error("Landing page content load failed:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadContentFromStorage();
+
+    // Listen for storage changes from other tabs/windows
+    const handleStorage = (e) => {
+      if (e.key === "school_erp_landing_content_v2" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setContent({ ...DEFAULT_CONTENT, ...parsed });
+        } catch {}
+      }
+    };
+
+    // When user returns to this tab, re-read storage (catches same-tab SPA nav)
+    const handleFocus = () => {
+      loadContentFromStorage();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [loadContentFromStorage]);
 
   const showSection = (id) => {
     setActiveSection(id);
@@ -821,12 +1117,23 @@ export const LandingPage = () => {
         <button
           className={`lp-hamburger${sidebarOpen ? " open" : ""}`}
           aria-label="Open menu"
-          onClick={() => setSidebarOpen(o => !o)}
+          onClick={() => setSidebarOpen((o) => !o)}
         >
-          <span /><span /><span />
+          <span />
+          <span />
+          <span />
         </button>
 
-        <button className="lp-logo" style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }} onClick={() => showSection("home")}>
+        <button
+          className="lp-logo"
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+          }}
+          onClick={() => showSection("home")}
+        >
           <div className="lp-logo-emblem">श्री</div>
           <div className="lp-logo-name">
             <div className="t1">Shree H.S. Model High School</div>
@@ -835,7 +1142,7 @@ export const LandingPage = () => {
         </button>
 
         <nav className="lp-topnav">
-          {NAV_ITEMS.map(item => (
+          {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
               className={activeSection === item.id ? "active" : ""}
@@ -844,20 +1151,36 @@ export const LandingPage = () => {
               {item.label}
             </button>
           ))}
-          <button className="lp-admit-btn" onClick={() => showSection("contact")} style={{ border: "none", cursor: "pointer", fontFamily: "inherit", borderRadius: "8px" }}>
+          <button
+            className="lp-admit-btn"
+            onClick={() => showSection("contact")}
+            style={{
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              borderRadius: "8px",
+            }}
+          >
             Contact Us
           </button>
           <Link
             to={getDashboardLink()}
             style={{
-              display: "inline-flex", alignItems: "center", gap: 7,
-              padding: "9px 18px", borderRadius: 8, marginLeft: 6,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "9px 18px",
+              borderRadius: 8,
+              marginLeft: 6,
               background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-              color: "#fff", fontWeight: 700, fontSize: 13,
-              textDecoration: "none", transition: "opacity 0.2s",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              textDecoration: "none",
+              transition: "opacity 0.2s",
             }}
-            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
-            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
           >
             🔐 {userRole ? "Dashboard" : "Login"}
           </Link>
@@ -865,14 +1188,21 @@ export const LandingPage = () => {
       </header>
 
       {/* Overlay */}
-      <div className={`lp-overlay${sidebarOpen ? " show" : ""}`} onClick={() => setSidebarOpen(false)} />
+      <div
+        className={`lp-overlay${sidebarOpen ? " show" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+      />
 
       {/* Sidebar */}
       <nav className={`lp-sidebar${sidebarOpen ? " open" : ""}`}>
         <div className="sb-section">
           <div className="sb-label">Main Menu</div>
-          {SIDEBAR_ITEMS.slice(0, 4).map(item => (
-            <button key={item.id} className={`sb-link${activeSection === item.id ? " active" : ""}`} onClick={() => showSection(item.id)}>
+          {SIDEBAR_ITEMS.slice(0, 4).map((item) => (
+            <button
+              key={item.id}
+              className={`sb-link${activeSection === item.id ? " active" : ""}`}
+              onClick={() => showSection(item.id)}
+            >
               <div className="sb-icon">{item.icon}</div> {item.label}
             </button>
           ))}
@@ -880,8 +1210,12 @@ export const LandingPage = () => {
         <div className="sb-divider" />
         <div className="sb-section">
           <div className="sb-label">Campus Life</div>
-          {SIDEBAR_ITEMS.slice(4).map(item => (
-            <button key={item.id} className={`sb-link${activeSection === item.id ? " active" : ""}`} onClick={() => showSection(item.id)}>
+          {SIDEBAR_ITEMS.slice(4).map((item) => (
+            <button
+              key={item.id}
+              className={`sb-link${activeSection === item.id ? " active" : ""}`}
+              onClick={() => showSection(item.id)}
+            >
               <div className="sb-icon">{item.icon}</div> {item.label}
             </button>
           ))}
@@ -889,23 +1223,58 @@ export const LandingPage = () => {
         <div className="sb-divider" />
         <div className="sb-section">
           <div className="sb-label">Quick Info</div>
-          <div style={{ padding: "14px 12px", background: "var(--marigold-light)", borderRadius: 12, fontSize: 13, color: "var(--clay-deep)" }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>📅 Academic Year 2025–26</div>
-            <div style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>Session: April – March<br />Board: UP Madhyamik<br />Medium: Hindi & English</div>
+          <div
+            style={{
+              padding: "14px 12px",
+              background: "var(--marigold-light)",
+              borderRadius: 12,
+              fontSize: 13,
+              color: "var(--clay-deep)",
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              📅 Academic Year 2025–26
+            </div>
+            <div style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
+              Session: April – March
+              <br />
+              Board: UP Madhyamik
+              <br />
+              Medium: Hindi & English
+            </div>
           </div>
         </div>
-        <div style={{ padding: 16, marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
-          <button className="lp-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => showSection("contact")}>
+        <div
+          style={{
+            padding: 16,
+            marginTop: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <button
+            className="lp-btn-primary"
+            style={{ width: "100%", justifyContent: "center" }}
+            onClick={() => showSection("contact")}
+          >
             📩 Admission Enquiry
           </button>
           <Link
             to={getDashboardLink()}
             onClick={() => setSidebarOpen(false)}
             style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              padding: "12px", borderRadius: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "12px",
+              borderRadius: 10,
               background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-              color: "#fff", fontWeight: 700, fontSize: 13, textDecoration: "none",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              textDecoration: "none",
             }}
           >
             🔐 {userRole ? "Go to Dashboard" : "Staff / Parent Login"}
@@ -915,9 +1284,10 @@ export const LandingPage = () => {
 
       {/* Main */}
       <main className="lp-main">
-
         {/* ── HOME ── */}
-        <section className={`lp-section${activeSection === "home" ? " active" : ""}`}>
+        <section
+          className={`lp-section${activeSection === "home" ? " active" : ""}`}
+        >
           {/* Hero */}
           <div className="lp-hero">
             <div className="lp-hero-motif" />
@@ -925,40 +1295,99 @@ export const LandingPage = () => {
               <div className="lp-hero-content">
                 <div className="lp-hero-badge">
                   <span className="dot" />
-                  Admissions Open 2025–26
+                  {content.heroBadge}
                 </div>
-                <h1>Shree H.S. Model<br /><em>High School</em></h1>
-                <p>Nurturing minds and building character since 2001. A UP Board-affiliated school in Agra committed to academic excellence, moral values, and all-round development.</p>
+                <h1>
+                  {content.heroTitle.split("\n").map((line, idx) => (
+                    <React.Fragment key={idx}>
+                      {idx > 0 && <br />}
+                      {idx === 1 ? <em>{line}</em> : line}
+                    </React.Fragment>
+                  ))}
+                </h1>
+                <p>{content.heroSubtitle}</p>
                 <div className="lp-hero-btns">
-                  <button className="lp-btn-primary" onClick={() => showSection("contact")}>Enquire for Admission →</button>
-                  <button className="lp-btn-outline" onClick={() => showSection("about")}>Know Our School</button>
+                  <button
+                    className="lp-btn-primary"
+                    onClick={() => showSection("contact")}
+                  >
+                    {content.ctaText}
+                  </button>
+                  <button
+                    className="lp-btn-outline"
+                    onClick={() => showSection("about")}
+                  >
+                    {content.ctaSecondary}
+                  </button>
                 </div>
                 <div className="lp-hero-stats">
-                  <div className="lp-hero-stat"><div className="num">1200+</div><div className="lbl">Students Enrolled</div></div>
-                  <div className="lp-hero-stat"><div className="num">95+</div><div className="lbl">Expert Faculty</div></div>
-                  <div className="lp-hero-stat"><div className="num">98%</div><div className="lbl">Board Pass Rate</div></div>
-                  <div className="lp-hero-stat"><div className="num">23+</div><div className="lbl">Years of Legacy</div></div>
+                  <div className="lp-hero-stat">
+                    <div className="num">{content.statsStudents}+</div>
+                    <div className="lbl">Students Enrolled</div>
+                  </div>
+                  <div className="lp-hero-stat">
+                    <div className="num">{content.statsFaculty}+</div>
+                    <div className="lbl">Expert Faculty</div>
+                  </div>
+                  <div className="lp-hero-stat">
+                    <div className="num">{content.statsPassRate}%</div>
+                    <div className="lbl">Board Pass Rate</div>
+                  </div>
+                  <div className="lp-hero-stat">
+                    <div className="num">{content.statsYears}+</div>
+                    <div className="lbl">Years of Legacy</div>
+                  </div>
                 </div>
               </div>
 
-              <HeroVisual />
+              <HeroVisual imageUrl={content.heroImageUrl} />
             </div>
           </div>
 
           {/* Image Slider */}
-          <ImageSlider />
+          <ImageSlider slides={content.slides} />
 
           {/* Quick links bar */}
           <div className="lp-quickbar">
             <div className="lp-quickbar-inner">
               {[
-                { label: "📋 Latest Notices", sec: "notices", bg: "var(--marigold-light)", color: "#8a5a06" },
-                { label: "📚 Our Curriculum", sec: "curriculum", bg: "#e3e9fb", color: "#2d3f8f" },
-                { label: "🖼️ School Gallery", sec: "gallery", bg: "#e2ecd9", color: "#3f5a2a" },
-                { label: "👨‍🏫 Our Faculty", sec: "teachers", bg: "#fbe3dc", color: "#8f3f23" },
-                { label: "📞 Contact Us", sec: "contact", bg: "var(--indigo-deep)", color: "var(--marigold)" },
-              ].map(q => (
-                <button key={q.sec} className="lp-qlink" style={{ background: q.bg, color: q.color }} onClick={() => showSection(q.sec)}>
+                {
+                  label: "📋 Latest Notices",
+                  sec: "notices",
+                  bg: "var(--marigold-light)",
+                  color: "#8a5a06",
+                },
+                {
+                  label: "📚 Our Curriculum",
+                  sec: "curriculum",
+                  bg: "#e3e9fb",
+                  color: "#2d3f8f",
+                },
+                {
+                  label: "🖼️ School Gallery",
+                  sec: "gallery",
+                  bg: "#e2ecd9",
+                  color: "#3f5a2a",
+                },
+                {
+                  label: "👨‍🏫 Our Faculty",
+                  sec: "teachers",
+                  bg: "#fbe3dc",
+                  color: "#8f3f23",
+                },
+                {
+                  label: "📞 Contact Us",
+                  sec: "contact",
+                  bg: "var(--indigo-deep)",
+                  color: "var(--marigold)",
+                },
+              ].map((q) => (
+                <button
+                  key={q.sec}
+                  className="lp-qlink"
+                  style={{ background: q.bg, color: q.color }}
+                  onClick={() => showSection(q.sec)}
+                >
                   {q.label}
                 </button>
               ))}
@@ -970,15 +1399,13 @@ export const LandingPage = () => {
             <div className="lp-sec-header">
               <div className="lp-eyebrow">Why Choose Us</div>
               <div className="lp-sec-title">Excellence in Every Dimension</div>
-              <div className="lp-sec-sub">From academics to sports, arts to values — we build complete human beings.</div>
+              <div className="lp-sec-sub">
+                From academics to sports, arts to values — we build complete
+                human beings.
+              </div>
             </div>
             <div className="lp-why-grid">
-              {[
-                { icon: "🏆", title: "Academic Excellence", desc: "Consistently 98%+ result in UP Board exams with top district rankers every year." },
-                { icon: "🕉️", title: "Moral Values", desc: "Character building through daily prayers, Sanskrit shloka recitation, and Yoga sessions." },
-                { icon: "🔬", title: "Modern Labs", desc: "Physics, Chemistry, Biology & Computer labs with modern equipment for hands-on learning." },
-                { icon: "⚽", title: "Sports & Arts", desc: "Annual sports meet, cultural programs, drawing & elocution competitions — talent nurtured." },
-              ].map(c => (
+              {(content.whyCards || []).map((c) => (
                 <div key={c.title} className="lp-why-card">
                   <div className="lp-why-icon">{c.icon}</div>
                   <div className="lp-why-title">{c.title}</div>
@@ -993,24 +1420,69 @@ export const LandingPage = () => {
             <div className="lp-principal-strip-inner">
               <div className="lp-eyebrow">From the Principal's Desk</div>
               <blockquote className="lp-pquote">
-                "Education is not merely about marks — it is about kindling the flame of curiosity, discipline, and humanity in every child. At Shree H.S. Model High School, we believe every student carries infinite potential."
+                "Education is not merely about marks — it is about kindling the
+                flame of curiosity, discipline, and humanity in every child. At
+                Shree H.S. Model High School, we believe every student carries
+                infinite potential."
               </blockquote>
-              <div style={{ fontWeight: 700, color: "var(--indigo-deep)", fontSize: 16 }}>Principal Rang Bahadur Singh Chauhan</div>
-              <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 4 }}>Shree H.S. Model High School, Agra</div>
-              <button className="lp-btn-primary" style={{ marginTop: 22, display: "inline-flex" }} onClick={() => showSection("about")}>
+              <div
+                style={{
+                  fontWeight: 700,
+                  color: "var(--indigo-deep)",
+                  fontSize: 16,
+                }}
+              >
+                Principal Rang Bahadur Singh Chauhan
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--ink-faint)",
+                  marginTop: 4,
+                }}
+              >
+                Shree H.S. Model High School, Agra
+              </div>
+              <button
+                className="lp-btn-primary"
+                style={{ marginTop: 22, display: "inline-flex" }}
+                onClick={() => showSection("about")}
+              >
                 Read Full Message →
               </button>
             </div>
           </div>
 
           {/* ERP Portal CTA */}
-          <div style={{ background: "var(--indigo-deep)", padding: "48px 24px", textAlign: "center" }}>
+          <div
+            style={{
+              background: "var(--indigo-deep)",
+              padding: "48px 24px",
+              textAlign: "center",
+            }}
+          >
             <div style={{ maxWidth: 600, margin: "0 auto" }}>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 700, color: "#fff", marginBottom: 12 }}>
+              <div
+                style={{
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: "clamp(22px, 3vw, 32px)",
+                  fontWeight: 700,
+                  color: "#fff",
+                  marginBottom: 12,
+                }}
+              >
                 School ERP Portal
               </div>
-              <p style={{ fontSize: 15, color: "#c3c9d3", marginBottom: 28, lineHeight: 1.7 }}>
-                Teachers, parents and admins — access your dashboard for grades, attendance, fees and announcements.
+              <p
+                style={{
+                  fontSize: 15,
+                  color: "#c3c9d3",
+                  marginBottom: 28,
+                  lineHeight: 1.7,
+                }}
+              >
+                Teachers, parents and admins — access your dashboard for grades,
+                attendance, fees and announcements.
               </p>
               <Link to={getDashboardLink()} className="lp-portal-btn">
                 {userRole ? "Go to Dashboard →" : "Enter ERP Portal →"}
@@ -1020,23 +1492,50 @@ export const LandingPage = () => {
         </section>
 
         {/* ── ABOUT ── */}
-        <section className={`lp-section${activeSection === "about" ? " active" : ""}`}>
+        <section
+          className={`lp-section${activeSection === "about" ? " active" : ""}`}
+        >
           <div className="lp-wrap">
             <div className="lp-sec-header">
               <div className="lp-eyebrow">Our Story</div>
-              <div className="lp-sec-title">About Shree H.S. Model High School</div>
+              <div className="lp-sec-title">
+                About Shree H.S. Model High School
+              </div>
             </div>
 
             <div className="lp-about-grid">
               <div className="lp-about-img-wrap">
-                <img src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=800&auto=format&fit=crop" alt="School building" className="lp-about-img" loading="lazy" />
-                <div className="lp-about-badge"><div className="num">2001</div><div className="lbl">Established</div></div>
+                <img
+                  src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=800&auto=format&fit=crop"
+                  alt="School building"
+                  className="lp-about-img"
+                  loading="lazy"
+                />
+                <div className="lp-about-badge">
+                  <div className="num">2001</div>
+                  <div className="lbl">Established</div>
+                </div>
               </div>
               <div className="lp-about-content">
                 <h2>A Legacy of Learning in the Heart of Agra</h2>
-                <p>Shree H.S. Model High School was established in 2001 with a vision to provide quality education rooted in Indian values and cultural heritage. Located in Agra, Uttar Pradesh, our school has grown from a small institution to one of the most respected educational centers in the region.</p>
-                <p>Affiliated with the Uttar Pradesh Madhyamik Shiksha Parishad (UP Board), we offer classes from primary level through Class XII, focusing on both Hindi and English mediums. Our curriculum blends modern pedagogy with traditional values.</p>
-                <p>Over more than two decades, we have produced thousands of successful alumni — doctors, engineers, teachers, civil servants — all carrying the values we instilled in them.</p>
+                <p>
+                  Shree H.S. Model High School was established in 2001 with a
+                  vision to provide quality education rooted in Indian values
+                  and cultural heritage. Located in Agra, Uttar Pradesh, our
+                  school has grown from a small institution to one of the most
+                  respected educational centers in the region.
+                </p>
+                <p>
+                  Affiliated with the Uttar Pradesh Madhyamik Shiksha Parishad
+                  (UP Board), we offer classes from primary level through Class
+                  XII, focusing on both Hindi and English mediums. Our
+                  curriculum blends modern pedagogy with traditional values.
+                </p>
+                <p>
+                  Over more than two decades, we have produced thousands of
+                  successful alumni — doctors, engineers, teachers, civil
+                  servants — all carrying the values we instilled in them.
+                </p>
                 <div className="lp-info-row">
                   {[
                     { label: "Established", value: "2001" },
@@ -1045,7 +1544,7 @@ export const LandingPage = () => {
                     { label: "Manager", value: "Dr. P.S. Chauhan" },
                     { label: "Medium", value: "Hindi & English" },
                     { label: "Students", value: "1200+ Enrolled" },
-                  ].map(i => (
+                  ].map((i) => (
                     <div key={i.label} className="lp-info-card">
                       <div className="label">{i.label}</div>
                       <div className="value">{i.value}</div>
@@ -1063,17 +1562,25 @@ export const LandingPage = () => {
               <div className="lp-principal-card">
                 <div className="lp-principal-avatar">RC</div>
                 <div>
-                  <p className="lp-principal-quote">"It is with immense pride and humility that I address the Shree H.S. Model High School family. Since our founding in 2001, we have strived to create an environment where every child feels valued, challenged, and inspired. Our school is not merely a place of academic learning — it is a second home where students develop not only their intellect, but their character, resilience, and compassion.<br /><br />We believe in the holistic development of each student — through rigorous academics, creative arts, physical education, and above all, the inculcation of strong moral values. Together, we will shape the leaders and citizens of tomorrow."</p>
-                  <div className="lp-principal-name">Principal Rang Bahadur Singh Chauhan</div>
-                  <div className="lp-principal-role">Shree H.S. Model High School, Agra · Since 2001</div>
+                  <p className="lp-principal-quote">
+                    "{content.principalFull}"
+                  </p>
+                  <div className="lp-principal-name">
+                    {content.principalName}
+                  </div>
+                  <div className="lp-principal-role">
+                    Shree H.S. Model High School, Agra · Since 2001
+                  </div>
                 </div>
               </div>
               <div className={`lp-principal-card lp-manager-card`}>
                 <div className="lp-principal-avatar lp-manager-avatar">PC</div>
                 <div>
-                  <p className="lp-principal-quote">"As the Manager of Shree H.S. Model High School, my commitment has always been to provide an institution that is accessible, affordable, and of the highest quality for the students of Agra. We have invested in modern classrooms, qualified teachers, and an environment that promotes curiosity and growth. Our students are our greatest achievement."</p>
-                  <div className="lp-principal-name">Dr. P.S. Chauhan</div>
-                  <div className="lp-principal-role">Manager, Shree H.S. Model High School, Agra</div>
+                  <p className="lp-principal-quote">"{content.managerFull}"</p>
+                  <div className="lp-principal-name">{content.managerName}</div>
+                  <div className="lp-principal-role">
+                    Manager, Shree H.S. Model High School, Agra
+                  </div>
                 </div>
               </div>
             </div>
@@ -1081,22 +1588,41 @@ export const LandingPage = () => {
         </section>
 
         {/* ── CURRICULUM ── */}
-        <section className={`lp-section${activeSection === "curriculum" ? " active" : ""}`}>
+        <section
+          className={`lp-section${activeSection === "curriculum" ? " active" : ""}`}
+        >
           <div className="lp-wrap">
             <div className="lp-sec-header">
               <div className="lp-eyebrow">Academics</div>
               <div className="lp-sec-title">Our Curriculum</div>
-              <div className="lp-sec-sub">UP Board affiliated. Classes from Primary to Senior Secondary (Class XII) in Hindi & English medium.</div>
+              <div className="lp-sec-sub">
+                UP Board affiliated. Classes from Primary to Senior Secondary
+                (Class XII) in Hindi & English medium.
+              </div>
             </div>
 
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: "var(--indigo-deep)", marginBottom: 20 }}>Classes We Offer</h3>
+            <h3
+              style={{
+                fontFamily: "'Fraunces', serif",
+                fontSize: 18,
+                fontWeight: 700,
+                color: "var(--indigo-deep)",
+                marginBottom: 20,
+              }}
+            >
+              Classes We Offer
+            </h3>
             <div className="lp-class-grid">
               {[
                 { icon: "📘", name: "Primary", range: "Class 1 – 5" },
                 { icon: "📗", name: "Junior", range: "Class 6 – 8" },
                 { icon: "📙", name: "Secondary", range: "Class 9 – 10" },
-                { icon: "📕", name: "Senior Secondary", range: "Class 11 – 12" },
-              ].map(c => (
+                {
+                  icon: "📕",
+                  name: "Senior Secondary",
+                  range: "Class 11 – 12",
+                },
+              ].map((c) => (
                 <div key={c.name} className="lp-class-card">
                   <div className="icon">{c.icon}</div>
                   <div className="name">{c.name}</div>
@@ -1105,25 +1631,76 @@ export const LandingPage = () => {
               ))}
             </div>
 
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: "var(--indigo-deep)", marginBottom: 20 }}>Streams Available (Class 11–12)</h3>
+            <h3
+              style={{
+                fontFamily: "'Fraunces', serif",
+                fontSize: 18,
+                fontWeight: 700,
+                color: "var(--indigo-deep)",
+                marginBottom: 20,
+              }}
+            >
+              Streams Available (Class 11–12)
+            </h3>
             <div className="lp-stream-grid">
               {[
-                { icon: "🔬", title: "Science Stream", desc: "Physics, Chemistry, Biology/Mathematics. Prepares students for medical, engineering, and research careers.", tag: "PCB / PCM", bg: "#e3e9fb", color: "#2d3f8f" },
-                { icon: "📊", title: "Commerce Stream", desc: "Accounts, Business Studies, Economics. Foundation for CA, MBA, banking, and entrepreneurship.", tag: "Commerce", bg: "var(--marigold-light)", color: "#8a5a06" },
-                { icon: "🏛️", title: "Arts / Humanities", desc: "History, Geography, Civics, Hindi Literature, Home Science. Ideal for civil services, law, and education.", tag: "Humanities", bg: "#e2ecd9", color: "#3f5a2a" },
-              ].map(s => (
+                {
+                  icon: "🔬",
+                  title: "Science Stream",
+                  desc: "Physics, Chemistry, Biology/Mathematics. Prepares students for medical, engineering, and research careers.",
+                  tag: "PCB / PCM",
+                  bg: "#e3e9fb",
+                  color: "#2d3f8f",
+                },
+                {
+                  icon: "📊",
+                  title: "Commerce Stream",
+                  desc: "Accounts, Business Studies, Economics. Foundation for CA, MBA, banking, and entrepreneurship.",
+                  tag: "Commerce",
+                  bg: "var(--marigold-light)",
+                  color: "#8a5a06",
+                },
+                {
+                  icon: "🏛️",
+                  title: "Arts / Humanities",
+                  desc: "History, Geography, Civics, Hindi Literature, Home Science. Ideal for civil services, law, and education.",
+                  tag: "Humanities",
+                  bg: "#e2ecd9",
+                  color: "#3f5a2a",
+                },
+              ].map((s) => (
                 <div key={s.title} className="lp-stream-card">
-                  <div className="lp-stream-icon" style={{ background: s.bg, color: s.color }}>{s.icon}</div>
+                  <div
+                    className="lp-stream-icon"
+                    style={{ background: s.bg, color: s.color }}
+                  >
+                    {s.icon}
+                  </div>
                   <h3>{s.title}</h3>
                   <p>{s.desc}</p>
-                  <span className="lp-tag" style={{ background: s.bg, color: s.color }}>{s.tag}</span>
+                  <span
+                    className="lp-tag"
+                    style={{ background: s.bg, color: s.color }}
+                  >
+                    {s.tag}
+                  </span>
                 </div>
               ))}
             </div>
 
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700, color: "var(--indigo-deep)", marginBottom: 20 }}>Core Subjects Taught</h3>
+            <h3
+              style={{
+                fontFamily: "'Fraunces', serif",
+                fontSize: 18,
+                fontWeight: 700,
+                color: "var(--indigo-deep)",
+                marginBottom: 20,
+              }}
+            >
+              Core Subjects Taught
+            </h3>
             <div className="lp-subject-grid">
-              {SUBJECTS.map(s => (
+              {SUBJECTS.map((s) => (
                 <div key={s} className="lp-subject-chip">
                   <div className="dot" />
                   <span>{s}</span>
@@ -1134,17 +1711,27 @@ export const LandingPage = () => {
         </section>
 
         {/* ── FACULTY ── */}
-        <section className={`lp-section${activeSection === "teachers" ? " active" : ""}`}>
+        <section
+          className={`lp-section${activeSection === "teachers" ? " active" : ""}`}
+        >
           <div className="lp-wrap">
             <div className="lp-sec-header">
               <div className="lp-eyebrow">Our Team</div>
               <div className="lp-sec-title">Meet Our Faculty</div>
-              <div className="lp-sec-sub">95+ qualified and experienced teachers dedicated to student success and holistic development.</div>
+              <div className="lp-sec-sub">
+                95+ qualified and experienced teachers dedicated to student
+                success and holistic development.
+              </div>
             </div>
             <div className="lp-teachers-grid">
-              {TEACHERS.map(t => (
+              {TEACHERS.map((t) => (
                 <div key={t.init} className="lp-teacher-card">
-                  <div className="lp-teacher-avatar" style={{ background: t.bg }}>{t.init}</div>
+                  <div
+                    className="lp-teacher-avatar"
+                    style={{ background: t.bg }}
+                  >
+                    {t.init}
+                  </div>
                   <div className="lp-teacher-name">{t.name}</div>
                   <div className="lp-teacher-subject">{t.subject}</div>
                   <div className="lp-teacher-qual">{t.qual}</div>
@@ -1152,25 +1739,60 @@ export const LandingPage = () => {
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 42, textAlign: "center", padding: 28, background: "var(--marigold-light)", borderRadius: 14, border: "1px solid var(--line)" }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--indigo-deep)" }}>95+ Faculty Members in Total</div>
-              <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 6 }}>All teachers are UP Board certified and hold B.Ed / M.Ed qualifications with years of teaching experience.</div>
+            <div
+              style={{
+                marginTop: 42,
+                textAlign: "center",
+                padding: 28,
+                background: "var(--marigold-light)",
+                borderRadius: 14,
+                border: "1px solid var(--line)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "var(--indigo-deep)",
+                }}
+              >
+                95+ Faculty Members in Total
+              </div>
+              <div
+                style={{
+                  fontSize: 13.5,
+                  color: "var(--ink-faint)",
+                  marginTop: 6,
+                }}
+              >
+                All teachers are UP Board certified and hold B.Ed / M.Ed
+                qualifications with years of teaching experience.
+              </div>
             </div>
           </div>
         </section>
 
         {/* ── GALLERY ── */}
-        <section className={`lp-section${activeSection === "gallery" ? " active" : ""}`}>
+        <section
+          className={`lp-section${activeSection === "gallery" ? " active" : ""}`}
+        >
           <div className="lp-wrap">
             <div className="lp-sec-header">
               <div className="lp-eyebrow">Campus Life</div>
               <div className="lp-sec-title">School Gallery</div>
-              <div className="lp-sec-sub">A glimpse into the vibrant life at Shree H.S. Model High School.</div>
+              <div className="lp-sec-sub">
+                A glimpse into the vibrant life at Shree H.S. Model High School.
+              </div>
             </div>
             <div className="lp-gallery-grid">
-              {GALLERY.map((g, i) => (
+              {(content.gallery || []).map((g, i) => (
                 <div key={i} className="lp-gallery-item">
-                  <img src={g.src} alt={g.caption} className="lp-gallery-img" loading="lazy" />
+                  <img
+                    src={g.src}
+                    alt={g.caption}
+                    className="lp-gallery-img"
+                    loading="lazy"
+                  />
                   <div className="lp-gallery-caption">{g.caption}</div>
                 </div>
               ))}
@@ -1179,15 +1801,19 @@ export const LandingPage = () => {
         </section>
 
         {/* ── NOTICES ── */}
-        <section className={`lp-section${activeSection === "notices" ? " active" : ""}`}>
+        <section
+          className={`lp-section${activeSection === "notices" ? " active" : ""}`}
+        >
           <div className="lp-wrap">
             <div className="lp-sec-header">
               <div className="lp-eyebrow">Updates</div>
               <div className="lp-sec-title">Notice Board</div>
-              <div className="lp-sec-sub">Latest announcements, exam schedules, and school events.</div>
+              <div className="lp-sec-sub">
+                Latest announcements, exam schedules, and school events.
+              </div>
             </div>
             <div className="lp-notice-list">
-              {NOTICES.map((n, i) => (
+              {(content.notices || []).map((n, i) => (
                 <div key={i} className="lp-notice-item">
                   <div className="lp-notice-date">
                     <div className="day">{n.day}</div>
@@ -1196,7 +1822,11 @@ export const LandingPage = () => {
                   <div>
                     <div className="lp-notice-title">{n.title}</div>
                     <div className="lp-notice-desc">{n.desc}</div>
-                    <span className={`lp-ntag ${n.tag}`}>{n.tagLabel}</span>
+                    <span
+                      className={`lp-ntag ${NOTICE_TAGS[n.tag]?.className || n.tag}`}
+                    >
+                      {n.tagLabel || NOTICE_TAGS[n.tag]?.label || ""}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -1205,22 +1835,39 @@ export const LandingPage = () => {
         </section>
 
         {/* ── CONTACT ── */}
-        <section className={`lp-section${activeSection === "contact" ? " active" : ""}`}>
+        <section
+          className={`lp-section${activeSection === "contact" ? " active" : ""}`}
+        >
           <div className="lp-wrap">
             <div className="lp-sec-header">
               <div className="lp-eyebrow">Get In Touch</div>
               <div className="lp-sec-title">Contact Us</div>
-              <div className="lp-sec-sub">We're happy to answer your questions about admissions, academics, or any school matters.</div>
+              <div className="lp-sec-sub">
+                We're happy to answer your questions about admissions,
+                academics, or any school matters.
+              </div>
             </div>
             <div className="lp-contact-grid">
               <div className="lp-contact-block">
                 {[
-                  { icon: "📍", label: "Address", value: "Shree H.S. Model High School, Agra, Uttar Pradesh – 282001" },
-                  { icon: "📞", label: "Phone", value: "+91 562 234-5678" },
-                  { icon: "✉️", label: "Email", value: "info@shreehsmodelhs.edu.in" },
-                  { icon: "🕘", label: "Office Hours", value: "Mon – Sat: 8:00 AM – 2:30 PM" },
-                  { icon: "🎓", label: "Admission Enquiry", value: "+91 562 234-5679 (Weekdays 9 AM – 1 PM)" },
-                ].map(c => (
+                  {
+                    icon: "📍",
+                    label: "Address",
+                    value: content.contactAddress,
+                  },
+                  { icon: "📞", label: "Phone", value: content.contactPhone },
+                  { icon: "✉️", label: "Email", value: content.contactEmail },
+                  {
+                    icon: "🕘",
+                    label: "Office Hours",
+                    value: content.contactHours,
+                  },
+                  {
+                    icon: "🎓",
+                    label: "Admission Enquiry",
+                    value: content.contactPhoneAdmission,
+                  },
+                ].map((c) => (
                   <div key={c.label} className="lp-contact-card">
                     <div className="lp-contact-icon">{c.icon}</div>
                     <div>
@@ -1230,24 +1877,81 @@ export const LandingPage = () => {
                   </div>
                 ))}
 
-                <form style={{ background: "#fff", borderRadius: 14, border: "1px solid var(--line)", padding: 24, boxShadow: "var(--shadow)" }} onSubmit={handleEnquiry}>
-                  <div style={{ fontWeight: 700, color: "var(--indigo-deep)", fontSize: 15, marginBottom: 16 }}>📩 Quick Enquiry</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <div><label className="lp-field-label">Your Name</label><input className="lp-field-input" type="text" placeholder="e.g. Ravi Sharma" required /></div>
-                    <div><label className="lp-field-label">Phone Number</label><input className="lp-field-input" type="tel" placeholder="10-digit mobile number" required /></div>
+                <form
+                  style={{
+                    background: "#fff",
+                    borderRadius: 14,
+                    border: "1px solid var(--line)",
+                    padding: 24,
+                    boxShadow: "var(--shadow)",
+                  }}
+                  onSubmit={handleEnquiry}
+                >
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "var(--indigo-deep)",
+                      fontSize: 15,
+                      marginBottom: 16,
+                    }}
+                  >
+                    📩 Quick Enquiry
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                    }}
+                  >
+                    <div>
+                      <label className="lp-field-label">Your Name</label>
+                      <input
+                        className="lp-field-input"
+                        type="text"
+                        placeholder="e.g. Ravi Sharma"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="lp-field-label">Phone Number</label>
+                      <input
+                        className="lp-field-input"
+                        type="tel"
+                        placeholder="10-digit mobile number"
+                        required
+                      />
+                    </div>
                     <div>
                       <label className="lp-field-label">Enquiry Type</label>
-                      <select className="lp-field-select" required defaultValue="">
-                        <option value="" disabled>Select enquiry type</option>
+                      <select
+                        className="lp-field-select"
+                        required
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          Select enquiry type
+                        </option>
                         <option>Admission Enquiry</option>
                         <option>Fee Related</option>
                         <option>Exam / Result</option>
                         <option>General Query</option>
                       </select>
                     </div>
-                    <div><label className="lp-field-label">Your Message</label><textarea className="lp-field-textarea" rows={3} placeholder="Tell us briefly how we can help" /></div>
-                    <button type="submit" className="lp-submit-btn">Send Enquiry</button>
-                    <div className={`lp-form-ok ${formStatus}`}>✓ Thank you! We will contact you soon.</div>
+                    <div>
+                      <label className="lp-field-label">Your Message</label>
+                      <textarea
+                        className="lp-field-textarea"
+                        rows={3}
+                        placeholder="Tell us briefly how we can help"
+                      />
+                    </div>
+                    <button type="submit" className="lp-submit-btn">
+                      Send Enquiry
+                    </button>
+                    <div className={`lp-form-ok ${formStatus}`}>
+                      ✓ Thank you! We will contact you soon.
+                    </div>
                   </div>
                 </form>
               </div>
@@ -1257,14 +1961,55 @@ export const LandingPage = () => {
                   <iframe
                     title="Map showing Agra, Uttar Pradesh"
                     src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d114427.61568!2d77.9908!3d27.1767!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x39747121d702ff6d%3A0xdd2ae4803f767dde!2sAgra%2C%20Uttar%20Pradesh!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin"
-                    allowFullScreen loading="lazy"
+                    allowFullScreen
+                    loading="lazy"
                   />
                 </div>
-                <div style={{ marginTop: 20, padding: "20px 22px", background: "linear-gradient(150deg,var(--marigold-light),#f6f1e7)", borderRadius: 14, border: "1px solid var(--line)" }}>
-                  <div style={{ fontWeight: 700, color: "var(--indigo-deep)", fontSize: 15, marginBottom: 12 }}>📋 Documents for Admission</div>
-                  <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
-                    {["Birth Certificate (Original + Photocopy)", "Previous Class Marksheet / Transfer Certificate", "Aadhar Card of Student & Parent", "Passport size photographs (4 copies)", "Caste Certificate (if applicable)"].map(d => (
-                      <li key={d} style={{ fontSize: 13.5, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 8 }}>
+                <div
+                  style={{
+                    marginTop: 20,
+                    padding: "20px 22px",
+                    background:
+                      "linear-gradient(150deg,var(--marigold-light),#f6f1e7)",
+                    borderRadius: 14,
+                    border: "1px solid var(--line)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "var(--indigo-deep)",
+                      fontSize: 15,
+                      marginBottom: 12,
+                    }}
+                  >
+                    📋 Documents for Admission
+                  </div>
+                  <ul
+                    style={{
+                      listStyle: "none",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
+                  >
+                    {[
+                      "Birth Certificate (Original + Photocopy)",
+                      "Previous Class Marksheet / Transfer Certificate",
+                      "Aadhar Card of Student & Parent",
+                      "Passport size photographs (4 copies)",
+                      "Caste Certificate (if applicable)",
+                    ].map((d) => (
+                      <li
+                        key={d}
+                        style={{
+                          fontSize: 13.5,
+                          color: "var(--ink-soft)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
                         <span style={{ color: "var(--clay)" }}>✓</span> {d}
                       </li>
                     ))}
@@ -1274,7 +2019,6 @@ export const LandingPage = () => {
             </div>
           </div>
         </section>
-
       </main>
 
       {/* Footer */}
@@ -1282,34 +2026,63 @@ export const LandingPage = () => {
         <div className="lp-footer-inner">
           <div className="lp-footer-grid">
             <div className="lp-footer-brand">
-              <div className="lp-footer-brand-name">🏫 Shree H.S. Model High School</div>
-              <p>Nurturing minds and building character since 2001. UP Board affiliated school in Agra dedicated to academic excellence and Indian values.</p>
+              <div className="lp-footer-brand-name">
+                🏫 Shree H.S. Model High School
+              </div>
+              <p>
+                Nurturing minds and building character since 2001. UP Board
+                affiliated school in Agra dedicated to academic excellence and
+                Indian values.
+              </p>
               <div className="lp-footer-badges">
-                {["UP Board Affiliated", "Est. 2001", "Agra, UP"].map(b => <span key={b} className="lp-footer-badge">{b}</span>)}
+                {["UP Board Affiliated", "Est. 2001", "Agra, UP"].map((b) => (
+                  <span key={b} className="lp-footer-badge">
+                    {b}
+                  </span>
+                ))}
               </div>
             </div>
             <div className="lp-footer-col">
               <h4>Quick Links</h4>
               {[
-                { label: "Home", sec: "home" }, { label: "About School", sec: "about" },
-                { label: "Curriculum", sec: "curriculum" }, { label: "Our Faculty", sec: "teachers" },
-                { label: "Gallery", sec: "gallery" }, { label: "Notice Board", sec: "notices" },
-              ].map(l => <button key={l.sec} onClick={() => showSection(l.sec)}>{l.label}</button>)}
+                { label: "Home", sec: "home" },
+                { label: "About School", sec: "about" },
+                { label: "Curriculum", sec: "curriculum" },
+                { label: "Our Faculty", sec: "teachers" },
+                { label: "Gallery", sec: "gallery" },
+                { label: "Notice Board", sec: "notices" },
+              ].map((l) => (
+                <button key={l.sec} onClick={() => showSection(l.sec)}>
+                  {l.label}
+                </button>
+              ))}
             </div>
             <div className="lp-footer-col">
               <h4>Contact</h4>
               <a href="#">📍 Agra, Uttar Pradesh – 282001</a>
               <a href="tel:+915622345678">📞 +91 562 234-5678</a>
-              <a href="mailto:info@shreehsmodelhs.edu.in">✉️ info@shreehsmodelhs.edu.in</a>
+              <a href="mailto:info@shreehsmodelhs.edu.in">
+                ✉️ info@shreehsmodelhs.edu.in
+              </a>
               <a href="#">🕘 Mon–Sat: 8 AM – 2:30 PM</a>
               <div style={{ marginTop: 16 }}>
-                <button className="lp-portal-btn" onClick={() => showSection("contact")}>📩 Admission Enquiry</button>
+                <button
+                  className="lp-portal-btn"
+                  onClick={() => showSection("contact")}
+                >
+                  📩 Admission Enquiry
+                </button>
               </div>
             </div>
           </div>
           <div className="lp-footer-bottom">
-            <span>© {new Date().getFullYear()} Shree H.S. Model High School, Agra. All rights reserved.</span>
-            <span>Principal: Rang Bahadur Singh Chauhan | Manager: Dr. P.S. Chauhan</span>
+            <span>
+              © {new Date().getFullYear()} Shree H.S. Model High School, Agra.
+              All rights reserved.
+            </span>
+            <span>
+              Principal: Rang Bahadur Singh Chauhan | Manager: Dr. P.S. Chauhan
+            </span>
           </div>
         </div>
       </footer>
