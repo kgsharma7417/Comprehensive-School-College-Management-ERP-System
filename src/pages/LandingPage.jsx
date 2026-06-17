@@ -230,7 +230,7 @@ const STYLES = `
   .lp-hero-stat .num { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700; color: var(--marigold); }
   .lp-hero-stat .lbl { font-size: 12px; color: #aab2bf; margin-top: 3px; font-weight: 500; }
 
-  /* ── Hero visual (right side image with mouse-tilt + blended edges) ── */
+  /* ── Hero visual (right side — rotating slideshow with mouse-tilt + blended edges) ── */
   .lp-hero-visual {
     position: relative; height: 460px; display: flex; align-items: center; justify-content: center;
     perspective: 1400px;
@@ -266,23 +266,37 @@ const STYLES = `
   }
   @keyframes lpFloat { 0%,100% { transform: translateZ(20px) translateY(0px); } 50% { transform: translateZ(20px) translateY(-14px); } }
 
-  .lp-hero-frame img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
-    transform: scale(1.08);
-    transition: transform 6s cubic-bezier(.16,1,.3,1);
-    filter: saturate(1.08) contrast(1.04);
+  /* stack of crossfading slides inside the frame */
+  .lp-hero-slide {
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 1.1s ease;
+    pointer-events: none;
   }
-  .lp-hero-visual:hover .lp-hero-frame img { transform: scale(1.16); }
+  .lp-hero-slide.is-active {
+    opacity: 1;
+    z-index: 1;
+  }
+  .lp-hero-slide img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transform: scale(1.06);
+    filter: saturate(1.08) contrast(1.04);
+    animation: lpKenBurns 7s ease-out forwards;
+  }
+  @keyframes lpKenBurns {
+    from { transform: scale(1.0); }
+    to   { transform: scale(1.12); }
+  }
 
   /* blended / faded edges so the photo melts into the hero background */
-  .lp-hero-frame::before {
-    content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  .lp-hero-frame-shade {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
     background:
       linear-gradient(180deg, rgba(20,24,31,0.5) 0%, transparent 22%, transparent 70%, rgba(20,24,31,0.65) 100%),
       linear-gradient(90deg, rgba(20,24,31,0.55) 0%, transparent 26%, transparent 78%, rgba(20,24,31,0.4) 100%);
   }
-  .lp-hero-frame::after {
-    content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  .lp-hero-frame-vignette {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
     box-shadow: inset 0 0 70px 18px rgba(20,24,31,0.55);
     mix-blend-mode: multiply;
     border-radius: 26px;
@@ -290,11 +304,24 @@ const STYLES = `
 
   .lp-hero-frame-caption {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
-    padding: 22px 22px 18px;
-    background: linear-gradient(0deg, rgba(15,18,24,0.88) 0%, transparent 100%);
+    padding: 22px 22px 16px;
+    background: linear-gradient(0deg, rgba(15,18,24,0.9) 0%, transparent 100%);
     color: #fff; font-size: 13.5px; font-weight: 600;
     transform: translateZ(28px);
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
   }
+  .lp-hero-frame-caption span.txt {
+    transition: opacity 0.4s ease;
+  }
+
+  /* progress dots for the slideshow, sitting in the caption bar */
+  .lp-hero-frame-dots { display: flex; gap: 6px; flex-shrink: 0; padding-bottom: 2px; }
+  .lp-hero-frame-dot {
+    width: 16px; height: 3px; border-radius: 3px;
+    background: rgba(255,255,255,0.3); border: none; cursor: pointer; padding: 0;
+    transition: background 0.25s;
+  }
+  .lp-hero-frame-dot.is-active { background: var(--marigold); }
 
   /* floating accent chips around the frame, drifting gently */
   .lp-hero-chip {
@@ -316,7 +343,7 @@ const STYLES = `
   .lp-hero-chip .tx .v { font-family: 'Fraunces', serif; font-size: 14px; font-weight: 700; color: #fff; }
   .lp-hero-chip .tx .l { font-size: 10px; color: #aab2bf; }
   .lp-chip-1 { top: 6%; left: -6%; animation: lpDriftA 5.5s ease-in-out infinite; }
-  .lp-chip-2 { bottom: 10%; right: -7%; animation: lpDriftB 6.2s ease-in-out infinite; }
+  .lp-chip-2 { bottom: 13%; right: -7%; animation: lpDriftB 6.2s ease-in-out infinite; }
   @keyframes lpDriftA { 0%,100% { transform: translateZ(60px) translateY(0) rotate(-2deg); } 50% { transform: translateZ(60px) translateY(-10px) rotate(1deg); } }
   @keyframes lpDriftB { 0%,100% { transform: translateZ(60px) translateY(0) rotate(2deg); } 50% { transform: translateZ(60px) translateY(12px) rotate(-1deg); } }
 
@@ -339,9 +366,11 @@ const STYLES = `
 
   @media (prefers-reduced-motion: reduce) {
     .lp-hero-frame, .lp-hero-chip, .lp-hero-ring, .lp-hero-particle, .lp-hero-glow,
-    .lp-hero-badge, .lp-hero h1, .lp-hero p, .lp-hero-btns, .lp-hero-stats, .lp-hero-visual {
+    .lp-hero-badge, .lp-hero h1, .lp-hero p, .lp-hero-btns, .lp-hero-stats, .lp-hero-visual,
+    .lp-hero-slide img {
       animation: none !important; opacity: 1 !important; transform: none !important;
     }
+    .lp-hero-slide { transition: none !important; }
   }
 
   /* ── Image Slider ── */
@@ -610,6 +639,28 @@ const STYLES = `
 `;
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
+
+// Images used inside the hero slideshow (frame on the right of the hero).
+// Each entry pairs a professional campus-life photo with a short caption.
+const HERO_SLIDES = [
+  {
+    src: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1200&auto=format&fit=crop",
+    caption: "Our Campus, Agra",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop",
+    caption: "Bright, Modern Classrooms",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=1200&auto=format&fit=crop",
+    caption: "Hands-on Science Learning",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1200&auto=format&fit=crop",
+    caption: "Sports & All-Round Growth",
+  },
+];
+
 const SLIDES = [
   {
     src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
@@ -797,6 +848,7 @@ const DEFAULT_CONTENT = {
     "Nurturing minds and building character since 2001. A UP Board-affiliated school in Agra committed to academic excellence, moral values, and all-round development.",
   heroImageUrl:
     "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
+  heroSlides: [...HERO_SLIDES],
   ctaText: "Enquire for Admission →",
   ctaSecondary: "Know Our School",
   heroBadge: "Admissions Open 2025–26",
@@ -844,27 +896,39 @@ const DEFAULT_CONTENT = {
   contactHours: "Mon – Sat: 8:00 AM – 2:30 PM",
 };
 
-// ─── Hero Visual (image + mouse-tilt parallax + blended edges) ───────────────
-function HeroVisual({ imageUrl }) {
+// ─── Hero Visual (crossfading slideshow + mouse-tilt parallax + blended edges) ─
+// Replaces the old single-static-image hero visual. Cycles through several
+// professional campus photos with a smooth crossfade + slow Ken Burns zoom,
+// so the hero feels alive without resorting to a jarring hard-cut carousel.
+function HeroVisual({ slides = HERO_SLIDES, fallbackImageUrl }) {
   const stageRef = useRef(null);
-  const frameRef = useRef(null);
   const rafRef = useRef(null);
   const target = useRef({ x: 0, y: 0 });
   const current = useRef({ x: 0, y: 0 });
+  const [active, setActive] = useState(0);
 
-  // Cache-bust: add timestamp so browser never serves stale image
-  const imgSrc =
-    imageUrl +
-    (imageUrl && !imageUrl.startsWith("data:")
-      ? (imageUrl.includes("?") ? "&" : "?") + "_cb=" + Date.now()
-      : imageUrl);
+  // If a single custom heroImageUrl was supplied (e.g. via admin settings)
+  // and no slide list is present, fall back to a one-slide "show".
+  const effectiveSlides =
+    slides && slides.length > 0
+      ? slides
+      : [{ src: fallbackImageUrl, caption: "Our Campus, Agra" }];
 
+  // Auto-advance the slideshow.
+  useEffect(() => {
+    if (effectiveSlides.length <= 1) return;
+    const id = setInterval(() => {
+      setActive((a) => (a + 1) % effectiveSlides.length);
+    }, 4500);
+    return () => clearInterval(id);
+  }, [effectiveSlides.length]);
+
+  // Mouse-tilt parallax on the whole stage (frame + chips + rings).
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
 
     const animate = () => {
-      // ease current towards target for a smooth, springy follow
       current.current.x += (target.current.x - current.current.x) * 0.08;
       current.current.y += (target.current.y - current.current.y) * 0.08;
       const { x, y } = current.current;
@@ -875,7 +939,7 @@ function HeroVisual({ imageUrl }) {
     };
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [imageUrl]);
+  }, []);
 
   const handleMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -919,14 +983,42 @@ function HeroVisual({ imageUrl }) {
           />
         ))}
 
-        <div ref={frameRef} className="lp-hero-frame">
-          <img
-            key={imageUrl}
-            src={imageUrl}
-            alt="Shree H.S. Model High School campus"
-            loading="eager"
-          />
-          <div className="lp-hero-frame-caption">🏫 Our Campus, Agra</div>
+        <div className="lp-hero-frame">
+          {effectiveSlides.map((s, i) => (
+            <div
+              key={i}
+              className={`lp-hero-slide${i === active ? " is-active" : ""}`}
+            >
+              {/* key forces the Ken Burns animation to restart each time this slide becomes active */}
+              <img
+                key={`${i}-${i === active ? "on" : "off"}`}
+                src={s.src}
+                alt={s.caption || "Shree H.S. Model High School campus"}
+                loading={i === 0 ? "eager" : "lazy"}
+              />
+            </div>
+          ))}
+
+          <div className="lp-hero-frame-shade" />
+          <div className="lp-hero-frame-vignette" />
+
+          <div className="lp-hero-frame-caption">
+            <span className="txt">
+              🏫 {effectiveSlides[active]?.caption || "Our Campus, Agra"}
+            </span>
+            {effectiveSlides.length > 1 && (
+              <div className="lp-hero-frame-dots">
+                {effectiveSlides.map((_, i) => (
+                  <button
+                    key={i}
+                    className={`lp-hero-frame-dot${i === active ? " is-active" : ""}`}
+                    onClick={() => setActive(i)}
+                    aria-label={`Show photo ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="lp-hero-chip lp-chip-1">
@@ -1340,7 +1432,10 @@ export const LandingPage = () => {
                 </div>
               </div>
 
-              <HeroVisual imageUrl={content.heroImageUrl} />
+              <HeroVisual
+                slides={content.heroSlides}
+                fallbackImageUrl={content.heroImageUrl}
+              />
             </div>
           </div>
 
