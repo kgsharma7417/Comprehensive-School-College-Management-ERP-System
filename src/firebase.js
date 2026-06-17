@@ -38,11 +38,18 @@ const isFirebaseConfigured = Boolean(
 let firebaseApp;
 let realAuth;
 let realDb;
+let secondaryAuth;
 
 if (isFirebaseConfigured) {
   firebaseApp = getApps().length === 0 ? initializeApp(liveConfig) : getApp();
   realAuth = getAuth(firebaseApp);
   realDb = getFirestore(firebaseApp);
+  try {
+    const secondaryApp = initializeApp(liveConfig, "SecondaryApp");
+    secondaryAuth = getAuth(secondaryApp);
+  } catch (e) {
+    import("./utils/logger").then(({ warn }) => warn("Secondary app init failed", e));
+  }
 }
 
 // ----------------------------------------------------
@@ -76,7 +83,7 @@ const getMockDb = () => {
           email: "teacher@school.com",
           password: "teacher123",
           role: "teacher",
-          class: "10A",
+          class: "Class 10",
           section: "A",
         },
         "parent-uid": {
@@ -93,7 +100,7 @@ const getMockDb = () => {
           id: "student-1",
           name: "Emily Miller",
           email: "emily@school.com",
-          class: "10A",
+          class: "Class 10",
           section: "A",
           rollNo: "101",
           fees: {
@@ -101,6 +108,11 @@ const getMockDb = () => {
             paid: 35000,
             balance: 15000,
             dueDate: "2026-06-30",
+            breakdown: {
+              monthlyTuition: 3000,
+              yearlyTerm: 10000,
+              extraCharges: 4000
+            }
           },
           attendanceHistory: [
             { date: "2026-06-16", status: "Present" },
@@ -139,7 +151,7 @@ const getMockDb = () => {
           id: "student-2",
           name: "James Wilson",
           email: "james@school.com",
-          class: "10A",
+          class: "Class 10",
           section: "A",
           rollNo: "102",
           fees: {
@@ -147,6 +159,11 @@ const getMockDb = () => {
             paid: 50000,
             balance: 0,
             dueDate: "2026-06-30",
+            breakdown: {
+              monthlyTuition: 3000,
+              yearlyTerm: 10000,
+              extraCharges: 4000
+            }
           },
           attendanceHistory: [
             { date: "2026-06-16", status: "Present" },
@@ -181,6 +198,11 @@ const getMockDb = () => {
             paid: 20000,
             balance: 28000,
             dueDate: "2026-06-25",
+            breakdown: {
+              monthlyTuition: 2800,
+              yearlyTerm: 9000,
+              extraCharges: 5400
+            }
           },
           attendanceHistory: [
             { date: "2026-06-16", status: "Absent" },
@@ -203,11 +225,17 @@ const getMockDb = () => {
           id: "teacher-uid",
           name: "Mr. Robert Harrison",
           email: "teacher@school.com",
-          class: "10A",
+          class: "Class 10",
           section: "A",
           designation: "Senior PGT Mathematics",
           joiningDate: "2022-08-10",
           salary: 45000,
+          salaryDetails: {
+            base: 40000,
+            allowances: 5000,
+            deductions: 0,
+            net: 45000
+          },
           bankDetails: "SBI A/C: 38291029302",
           syllabusCompletion: 78,
           status: "Present",
@@ -226,16 +254,17 @@ const getMockDb = () => {
           date: "2026-06-16",
         },
       ],
-      concessionRequests: [
+      feePaymentRequests: [
         {
-          id: "cr1",
+          id: "pr1",
           studentId: "student-1",
           studentName: "Emily Miller",
-          class: "10A",
-          feeAmount: 50000,
-          requestedDiscount: "50%",
-          reason: "EWS Category",
-          status: "Pending",
+          class: "Class 10",
+          amountPaid: 15000,
+          paymentDate: "2026-06-15",
+          transactionId: "TXN123456789",
+          message: "Paid remaining balance via GPay",
+          status: "Approved",
         },
       ],
       notices: [
@@ -269,7 +298,7 @@ const getMockDb = () => {
         },
       ],
       timetables: {
-        "10A": [
+        "Class 10": [
           {
             period: "1st",
             time: "09:00 AM - 09:45 AM",
@@ -293,7 +322,7 @@ const getMockDb = () => {
       homework: [
         {
           id: "hw1",
-          class: "10A",
+          class: "Class 10",
           subject: "Mathematics",
           title: "Algebra exercise 4.2",
           description: "Solve all questions from 1 to 10 in homework copy.",
@@ -392,6 +421,23 @@ export const createUserWithEmailAndPassword = async (
   return fbCreateUser(authObj, email, password);
 };
 
+export const adminCreateUser = async (email, password) => {
+  if (!isFirebaseConfigured) {
+    if (!email || password.length < 6) {
+      throw new Error("Invalid email or password (min 6 chars)");
+    }
+    const mockUid = "mock_" + Math.random().toString(36).substring(2, 9);
+    return {
+      user: {
+        uid: mockUid,
+        email,
+        displayName: "",
+      },
+    };
+  }
+  return fbCreateUser(secondaryAuth || realAuth, email, password);
+};
+
 export const signOut = async (authObj) => {
   if (!isFirebaseConfigured) {
     mockCurrentUser = null;
@@ -468,6 +514,24 @@ export const updateDoc = async (docRef, data) => {
       database.users[docId] = { ...database.users[docId], ...data };
     } else if (collectionName === "attendance") {
       database.attendance[docId] = { ...database.attendance[docId], ...data };
+    } else {
+      // General handler for array collections (like students, teachers, etc)
+      if (Array.isArray(database[collectionName])) {
+        const idx = database[collectionName].findIndex(
+          (item) => item.id === docId || item.uid === docId,
+        );
+        if (idx > -1) {
+          database[collectionName][idx] = {
+            ...database[collectionName][idx],
+            ...data,
+          };
+        }
+      } else if (database[collectionName] && typeof database[collectionName] === "object") {
+        database[collectionName][docId] = {
+          ...database[collectionName][docId],
+          ...data,
+        };
+      }
     }
 
     saveMockDb(database);
@@ -499,8 +563,8 @@ export const getDocs = async (queryOrColRef) => {
       list = database.notices;
     } else if (collectionName === "leaveRequests") {
       list = database.leaveRequests;
-    } else if (collectionName === "concessionRequests") {
-      list = database.concessionRequests;
+    } else if (collectionName === "feePaymentRequests") {
+      list = database.feePaymentRequests;
     } else if (collectionName === "salarySlips") {
       list = database.salarySlips;
     } else if (collectionName === "homework") {
@@ -560,8 +624,8 @@ export const addDoc = async (colRef, data) => {
       database.notices.push(newDoc);
     } else if (collectionName === "leaveRequests") {
       database.leaveRequests.push(newDoc);
-    } else if (collectionName === "concessionRequests") {
-      database.concessionRequests.push(newDoc);
+    } else if (collectionName === "feePaymentRequests") {
+      database.feePaymentRequests.push(newDoc);
     } else if (collectionName === "salarySlips") {
       database.salarySlips.push(newDoc);
     } else if (collectionName === "homework") {

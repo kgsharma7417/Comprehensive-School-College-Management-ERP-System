@@ -32,7 +32,7 @@ import {
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
 /** FIX: Single helper for teacher ID — no scattered `uid || 'teacher-uid'` */
-const getTeacherId = (userData) => userData?.uid ?? "";
+const getTeacherId = (userData) => userData?.teacherId ?? userData?.uid ?? "";
 
 /**
  * FIX (CSV BOM): Added \uFEFF so Excel opens Hindi/special chars correctly.
@@ -84,7 +84,40 @@ export const TeacherDashboard = () => {
   const [notices, setNotices] = useState([]);
   const [salarySlips, setSalarySlips] = useState([]);
   const [timetable, setTimetable] = useState([]);
+  const [timetableStartHour, setTimetableStartHour] = useState(8);
+  const [timetablePeriodDuration, setTimetablePeriodDuration] = useState(60);
   const [leaveBalance, setLeaveBalance] = useState(8); // FIX: State instead of hardcoded UI
+
+  const getPeriodTime = (periodStr, startHour, durationMinutes) => {
+    const periodSlots = {
+      "1st": 1,
+      "2nd": 2,
+      "3rd": 3,
+      "4th": 4,
+      "5th": 5,
+      "6th": 6,
+      "7th": 7,
+    };
+    const slotIndex = periodSlots[periodStr] || 1;
+    const start = parseInt(startHour) || 8;
+    const dur = parseInt(durationMinutes) || 60;
+    
+    const startTotalMinutes = start * 60 + (slotIndex - 1) * dur;
+    const endTotalMinutes = startTotalMinutes + dur;
+    
+    const formatTime = (totalMinutes) => {
+      let hours = Math.floor(totalMinutes / 60) % 24;
+      const minutes = totalMinutes % 60;
+      const period = hours >= 12 ? "PM" : "AM";
+      let displayHour = hours % 12;
+      if (displayHour === 0) displayHour = 12;
+      const padHour = displayHour < 10 ? `0${displayHour}` : displayHour;
+      const padMin = minutes < 10 ? `0${minutes}` : minutes;
+      return `${padHour}:${padMin} ${period}`;
+    };
+    
+    return `${formatTime(startTotalMinutes)} - ${formatTime(endTotalMinutes)}`;
+  };
 
   const [leaveForm, setLeaveForm] = useState({
     days: "1 Day",
@@ -102,6 +135,15 @@ export const TeacherDashboard = () => {
     "Computer",
     "Physical Education",
   ];
+  const CLASSES = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12"];
+  const SECTIONS = ["A", "B", "C"];
+
+  const [allStudents, setAllStudents] = useState([]);
+  const [filterClass, setFilterClass] = useState("All");
+  const [filterSection, setFilterSection] = useState("All");
+  const [searchStudentQuery, setSearchStudentQuery] = useState("");
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
+
   const [marksForm, setMarksForm] = useState({
     studentId: "",
     subject: "Mathematics",
@@ -232,8 +274,8 @@ export const TeacherDashboard = () => {
         const record = { id: snap.docs[0].id, ...snap.docs[0].data() };
         setTeacherRecord(record);
         setProfileForm(record); // FIX: Pre-populate profile edit form
-        setSelectedClass(record.assignedClass ?? "10A");
-        setSelectedSection(record.assignedSection ?? "A");
+        setSelectedClass(record.class ?? record.assignedClass ?? "Class 10");
+        setSelectedSection(record.section ?? record.assignedSection ?? "A");
         return;
       }
     } catch (err) {
@@ -250,8 +292,8 @@ export const TeacherDashboard = () => {
       if (teacher) {
         setTeacherRecord(teacher);
         setProfileForm(teacher);
-        setSelectedClass(teacher.assignedClass ?? "10A");
-        setSelectedSection(teacher.assignedSection ?? "A");
+        setSelectedClass(teacher.class ?? teacher.assignedClass ?? "Class 10");
+        setSelectedSection(teacher.section ?? teacher.assignedSection ?? "A");
         return;
       }
     }
@@ -260,6 +302,32 @@ export const TeacherDashboard = () => {
     setSelectedClass("10A");
     setSelectedSection("A");
   }, [userData]);
+
+  const fetchAllStudents = useCallback(async () => {
+    try {
+      let list = [];
+      try {
+        const snap = await getDocs(collection(db, "students"));
+        list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      } catch (err) {
+        import("../utils/logger").then(({ warn }) =>
+          warn("fetchAllStudents firebase query failed", err),
+        );
+        const raw = localStorage.getItem("school_erp_mock_db");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          list = parsed.students ?? [];
+        }
+      }
+      setAllStudents(list);
+    } catch (error) {
+      console.error("Error fetching all students:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAllStudents();
+  }, [activeTab, fetchAllStudents]);
 
   /**
    * FIX 1: useCallback with stable deps — no stale closures.
@@ -287,6 +355,9 @@ export const TeacherDashboard = () => {
         import("../utils/logger").then(({ warn }) =>
           warn("fetchClassData firebase query failed", err),
         );
+      }
+
+      if (list.length === 0) {
         const raw = localStorage.getItem("school_erp_mock_db");
         if (raw) {
           const parsed = JSON.parse(raw);
@@ -321,6 +392,12 @@ export const TeacherDashboard = () => {
         setTimetable(
           parsed.timetables?.[key] ?? parsed.timetables?.[selectedClass] ?? [],
         );
+        if (parsed.timetableStartHour) {
+          setTimetableStartHour(parsed.timetableStartHour);
+        }
+        if (parsed.timetablePeriodDuration) {
+          setTimetablePeriodDuration(parsed.timetablePeriodDuration);
+        }
       }
 
       setStudents(list);
@@ -417,7 +494,33 @@ export const TeacherDashboard = () => {
 
     let savedToFirebase = false;
     try {
+      // 1. Save attendance log
       await setDoc(doc(db, "attendance", attendanceDocId), payload);
+
+      // 2. Update individual student history in Firestore
+      const updatePromises = students.map(async (student) => {
+        const history = student.attendanceHistory ?? [];
+        const idx = history.findIndex((h) => h.date === currentDate);
+        const statusStr = attendanceMap[student.id] === true ? "Present" : "Absent";
+
+        const newHistory = [...history];
+        if (idx > -1) {
+          newHistory[idx] = { ...newHistory[idx], status: statusStr };
+        } else {
+          newHistory.push({ date: currentDate, status: statusStr });
+        }
+
+        const total = newHistory.length;
+        const pres = newHistory.filter((h) => h.status === "Present").length;
+        const overall = total > 0 ? Math.round((pres / total) * 100) : 0;
+
+        return updateDoc(doc(db, "students", student.id), {
+          attendanceHistory: newHistory,
+          overallAttendance: overall,
+        });
+      });
+      await Promise.all(updatePromises);
+
       savedToFirebase = true;
       triggerNotification("Attendance saved to server!");
     } catch (err) {
@@ -478,7 +581,9 @@ export const TeacherDashboard = () => {
       }
     }
 
-    // FIX: Always reset the operation lock — was missing error path reset before
+    // Refresh class data to update percentages and lists on the UI
+    fetchClassData();
+
     setSaveLoading(false);
     operationRef.current = false;
   };
@@ -572,30 +677,44 @@ export const TeacherDashboard = () => {
         if (idx > -1) {
           if (!parsed.students[idx].marks) parsed.students[idx].marks = [];
 
-          // FIX: Duplicate check — same subject + exam already exists
-          const duplicate = parsed.students[idx].marks.find(
+          const dupIdx = parsed.students[idx].marks.findIndex(
             (m) => m.subject === marksForm.subject && m.exam === marksForm.exam,
           );
-          if (duplicate) {
-            triggerNotification(
-              `Marks for ${marksForm.subject} (${marksForm.exam}) already exist. Edit not supported yet.`,
-              "error",
-            );
-            return;
+          if (dupIdx > -1) {
+            parsed.students[idx].marks[dupIdx] = {
+              ...parsed.students[idx].marks[dupIdx],
+              marksObtained: obtained,
+              maxMarks: max,
+              updatedAt: new Date().toISOString(),
+              enteredBy: userData?.name ?? "Teacher",
+            };
+            triggerNotification("Academic marks updated successfully!");
+          } else {
+            parsed.students[idx].marks.push({
+              subject: marksForm.subject,
+              exam: marksForm.exam,
+              marksObtained: obtained,
+              maxMarks: max,
+              enteredAt: new Date().toISOString(),
+              enteredBy: userData?.name ?? "Teacher",
+            });
+            triggerNotification("Academic marks recorded successfully!");
+          }
+          localStorage.setItem("school_erp_mock_db", JSON.stringify(parsed));
+          if (selectedStudentDetail && selectedStudentDetail.id === marksForm.studentId) {
+            setSelectedStudentDetail(parsed.students[idx]);
           }
 
-          parsed.students[idx].marks.push({
-            subject: marksForm.subject,
-            exam: marksForm.exam,
-            marksObtained: obtained,
-            maxMarks: max,
-            enteredAt: new Date().toISOString(),
-            enteredBy: userData?.name ?? "Teacher",
-          });
-          localStorage.setItem("school_erp_mock_db", JSON.stringify(parsed));
+          // Try updating Firebase/Firestore too!
+          try {
+            await updateDoc(doc(db, "students", marksForm.studentId), {
+              marks: parsed.students[idx].marks,
+            });
+          } catch (fbErr) {
+            console.warn("Firebase update failed, using localStorage fallback:", fbErr);
+          }
         }
       }
-      triggerNotification("Academic marks recorded successfully!");
       setMarksForm({
         studentId: "",
         subject: "Mathematics",
@@ -604,6 +723,7 @@ export const TeacherDashboard = () => {
         exam: "Mid-Term",
       });
       fetchClassData();
+      fetchAllStudents();
     } catch (err) {
       import("../utils/logger").then(({ error }) => error(err));
       triggerNotification("Failed to save marks.", "error");
@@ -927,6 +1047,7 @@ export const TeacherDashboard = () => {
                 <input
                   type="date"
                   value={currentDate}
+                  max={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setCurrentDate(e.target.value)}
                   className="border border-slate-200 rounded-lg px-2 py-1 text-xs"
                 />
@@ -1140,236 +1261,460 @@ export const TeacherDashboard = () => {
           )}
 
           {/* ══ TAB: UPLOAD MARKS ══ */}
-          {activeTab === "upload_marks" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm h-fit">
-                <h3 className="text-base font-extrabold text-slate-800 mb-6">
-                  Enter Academic Marks
-                </h3>
-                <form onSubmit={handleUploadMarks} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-2">
-                      Select Student
-                    </label>
-                    <select
-                      value={marksForm.studentId}
-                      onChange={(e) =>
-                        setMarksForm({
-                          ...marksForm,
-                          studentId: e.target.value,
-                        })
-                      }
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
-                      required
-                    >
-                      <option value="">Choose student...</option>
-                      {students.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} (Roll: {s.rollNo})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+          {activeTab === "upload_marks" && (() => {
+            const filteredAllStudents = allStudents.filter((s) => {
+              const matchClass = filterClass === "All" || s.class === filterClass;
+              const matchSection = filterSection === "All" || s.section === filterSection;
+              const matchQuery =
+                searchStudentQuery === "" ||
+                s.name.toLowerCase().includes(searchStudentQuery.toLowerCase()) ||
+                (s.rollNo && String(s.rollNo).includes(searchStudentQuery));
+              return matchClass && matchSection && matchQuery;
+            });
 
-                  {/* FIX: Subject is now a dropdown (no free-text typos) */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-2">
-                      Subject
-                    </label>
-                    <select
-                      value={marksForm.subject}
-                      onChange={(e) =>
-                        setMarksForm({ ...marksForm, subject: e.target.value })
-                      }
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
-                    >
-                      {SUBJECTS.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+            return (
+              <div className="space-y-6">
+                {/* Search & Filter Bar */}
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
+                  <div className="w-full md:w-1/3">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Search Student Name / Roll No</label>
+                    <input
+                      type="text"
+                      value={searchStudentQuery}
+                      onChange={(e) => setSearchStudentQuery(e.target.value)}
+                      placeholder="Type student name or roll number..."
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs bg-slate-50 outline-none"
+                    />
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-2">
-                      Exam Type
-                    </label>
-                    <select
-                      value={marksForm.exam}
-                      onChange={(e) =>
-                        setMarksForm({ ...marksForm, exam: e.target.value })
-                      }
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
-                    >
-                      <option value="Mid-Term">Mid-Term</option>
-                      <option value="Final">Final</option>
-                      <option value="Unit Test">Unit Test</option>
-                      <option value="Assignment">Assignment</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-2">
-                        Marks Obtained
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        value={marksForm.marksObtained}
-                        onChange={(e) =>
-                          setMarksForm({
-                            ...marksForm,
-                            marksObtained: e.target.value,
-                          })
-                        }
+                  <div className="flex gap-4 w-full md:w-auto">
+                    <div className="flex-1 md:w-36">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Class</label>
+                      <select
+                        value={filterClass}
+                        onChange={(e) => setFilterClass(e.target.value)}
                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-2">
-                        Max Marks
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={marksForm.maxMarks}
-                        onChange={(e) =>
-                          setMarksForm({
-                            ...marksForm,
-                            maxMarks: e.target.value,
-                          })
-                        }
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* FIX: Live percentage preview */}
-                  {marksForm.marksObtained &&
-                    marksForm.maxMarks &&
-                    Number(marksForm.maxMarks) > 0 && (
-                      <div className="text-xs text-center font-bold text-indigo-600">
-                        {Math.round(
-                          (Number(marksForm.marksObtained) /
-                            Number(marksForm.maxMarks)) *
-                            100,
-                        )}
-                        %
-                      </div>
-                    )}
-
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all"
-                  >
-                    Submit Marks
-                  </button>
-                </form>
-              </div>
-
-              <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
-                  <h3 className="text-base font-extrabold text-slate-800">
-                    Subject Marks Log
-                  </h3>
-                  <button
-                    onClick={handleExportMarksReport}
-                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-indigo-600" />{" "}
-                    Export Grades (CSV)
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {students.map((s) => (
-                    <div
-                      key={s.id}
-                      className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs space-y-2"
-                    >
-                      <h4 className="font-extrabold text-slate-800">
-                        {s.name}
-                      </h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {s.marks?.map((m, i) => (
-                          <div
-                            key={i}
-                            className="p-2 bg-white rounded border text-center"
-                          >
-                            <span className="text-[9px] text-slate-400 block font-bold uppercase">
-                              {m.subject} — {m.exam}
-                            </span>
-                            <span className="text-xs font-black text-slate-800 mt-0.5 block">
-                              {m.marksObtained}/{m.maxMarks}
-                            </span>
-                            <span className="text-[9px] text-indigo-500 font-bold">
-                              {Math.round((m.marksObtained / m.maxMarks) * 100)}
-                              %
-                            </span>
-                          </div>
+                      >
+                        <option value="All">All Classes</option>
+                        {CLASSES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
                         ))}
-                        {(!s.marks || s.marks.length === 0) && (
-                          <span className="text-[10px] text-slate-400 col-span-3">
-                            No marks uploaded yet.
-                          </span>
+                      </select>
+                    </div>
+                    <div className="flex-1 md:w-36">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Section</label>
+                      <select
+                        value={filterSection}
+                        onChange={(e) => setFilterSection(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
+                      >
+                        <option value="All">All Sections</option>
+                        {SECTIONS.map((s) => (
+                          <option key={s} value={s}>Section {s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Enter Academic Marks Form */}
+                  <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm h-fit">
+                    <h3 className="text-base font-extrabold text-slate-800 mb-6">
+                      Enter Academic Marks
+                    </h3>
+                    <form onSubmit={handleUploadMarks} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-500 mb-2">
+                          Select Student ({filteredAllStudents.length} matches)
+                        </label>
+                        <select
+                          value={marksForm.studentId}
+                          onChange={(e) =>
+                            setMarksForm({
+                              ...marksForm,
+                              studentId: e.target.value,
+                            })
+                          }
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
+                          required
+                        >
+                          <option value="">Choose student...</option>
+                          {filteredAllStudents.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} (Roll: {s.rollNo} | {s.class}-{s.section})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Subject dropdown */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-500 mb-2">
+                          Subject
+                        </label>
+                        <select
+                          value={marksForm.subject}
+                          onChange={(e) =>
+                            setMarksForm({ ...marksForm, subject: e.target.value })
+                          }
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
+                        >
+                          {SUBJECTS.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-500 mb-2">
+                          Exam Type
+                        </label>
+                        <select
+                          value={marksForm.exam}
+                          onChange={(e) =>
+                            setMarksForm({ ...marksForm, exam: e.target.value })
+                          }
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
+                        >
+                          <option value="Mid-Term">Mid-Term</option>
+                          <option value="Final">Final</option>
+                          <option value="Unit Test">Unit Test</option>
+                          <option value="Assignment">Assignment</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-500 mb-2">
+                            Marks Obtained
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={marksForm.marksObtained}
+                            onChange={(e) =>
+                              setMarksForm({
+                                ...marksForm,
+                                marksObtained: e.target.value,
+                              })
+                            }
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-500 mb-2">
+                            Max Marks
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={marksForm.maxMarks}
+                            onChange={(e) =>
+                              setMarksForm({
+                                ...marksForm,
+                                maxMarks: e.target.value,
+                              })
+                            }
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* Live percentage preview */}
+                      {marksForm.marksObtained &&
+                        marksForm.maxMarks &&
+                        Number(marksForm.maxMarks) > 0 && (
+                          <div className="text-xs text-center font-bold text-indigo-600">
+                            {Math.round(
+                              (Number(marksForm.marksObtained) /
+                                Number(marksForm.maxMarks)) *
+                                100,
+                            )}
+                            %
+                          </div>
                         )}
+
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all"
+                      >
+                        Submit Marks
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Subject Marks Log */}
+                  <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col h-[600px] overflow-hidden">
+                    <div className="flex justify-between items-center mb-6 flex-wrap gap-3 shrink-0">
+                      <h3 className="text-base font-extrabold text-slate-800">
+                        Subject Marks Log
+                      </h3>
+                      <button
+                        onClick={handleExportMarksReport}
+                        className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-indigo-600" />{" "}
+                        Export Grades (CSV)
+                      </button>
+                    </div>
+                    <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+                      {filteredAllStudents.map((s) => (
+                        <div
+                          key={s.id}
+                          onClick={() => setSelectedStudentDetail(s)}
+                          className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs space-y-2 cursor-pointer hover:border-indigo-200 hover:bg-slate-100/60 hover:shadow-sm transition-all"
+                          title="Click to view detailed subject scorecard"
+                        >
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-extrabold text-slate-800">
+                              {s.name} <span className="text-[10px] text-slate-400 font-normal">({s.class} - {s.section} | Roll: {s.rollNo})</span>
+                            </h4>
+                            <span className="text-[10px] text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded hover:bg-indigo-100 transition-colors">View Scorecard →</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {s.marks?.map((m, i) => (
+                              <div
+                                key={i}
+                                className="p-2 bg-white rounded border text-center"
+                              >
+                                <span className="text-[9px] text-slate-400 block font-bold uppercase">
+                                  {m.subject} — {m.exam}
+                                </span>
+                                <span className="text-xs font-black text-slate-800 mt-0.5 block">
+                                  {m.marksObtained}/{m.maxMarks}
+                                </span>
+                                <span className="text-[9px] text-indigo-500 font-bold">
+                                  {Math.round((m.marksObtained / m.maxMarks) * 100)}
+                                  %
+                                </span>
+                              </div>
+                            ))}
+                            {(!s.marks || s.marks.length === 0) && (
+                              <span className="text-[10px] text-slate-400 col-span-3">
+                                No marks uploaded yet.
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {filteredAllStudents.length === 0 && (
+                        <p className="text-center py-8 text-slate-450">No students matched the search criteria.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* DETAILED STUDENT MARKS MODAL */}
+                {selectedStudentDetail && (
+                  <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+                    <div className="bg-white border border-slate-200 p-6 rounded-3xl max-w-2xl w-full space-y-6 shadow-2xl relative animate-scale-up">
+                      <div className="flex justify-between items-start pb-4 border-b border-slate-100">
+                        <div>
+                          <span className="text-xs text-indigo-650 font-extrabold tracking-widest uppercase">Student Scorecard Detail</span>
+                          <h3 className="text-lg font-black text-slate-800 mt-1">
+                            {selectedStudentDetail.name}
+                          </h3>
+                          <span className="text-xs text-slate-400 font-semibold mt-0.5 block">
+                            Roll No: {selectedStudentDetail.rollNo} | Class {selectedStudentDetail.class} - Section {selectedStudentDetail.section}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setSelectedStudentDetail(null)}
+                          className="text-slate-400 hover:text-slate-600 text-xl font-bold bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Detailed list of all subjects (Grouped by Exam Types) */}
+                      <div className="space-y-6 max-h-[380px] overflow-y-auto pr-1">
+                        {["Mid-Term", "Final", "Unit Test", "Assignment"].map((examType) => {
+                          const examMarks = (selectedStudentDetail.marks ?? []).filter(
+                            (m) => m.exam === examType
+                          );
+
+                          return (
+                            <div key={examType} className="border border-slate-100 rounded-2xl p-4 bg-slate-50/40 space-y-3">
+                              <h4 className="font-extrabold text-xs text-indigo-600 uppercase tracking-wider flex justify-between items-center">
+                                <span>{examType} Term Report</span>
+                                {examMarks.length > 0 ? (
+                                  <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">
+                                    {examMarks.length} / {SUBJECTS.length} Subjects Uploaded
+                                  </span>
+                                ) : (
+                                  <span className="bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">
+                                    All Pending
+                                  </span>
+                                )}
+                              </h4>
+                              <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
+                                <table className="w-full text-left text-[11px] border-collapse">
+                                  <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                                      <th className="p-2.5">Subject</th>
+                                      <th className="p-2.5 text-center">Marks Obtained</th>
+                                      <th className="p-2.5 text-center">Percentage</th>
+                                      <th className="p-2.5 text-center">Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-50 text-slate-700">
+                                    {SUBJECTS.map((subject) => {
+                                      const mark = examMarks.find((m) => m.subject === subject);
+                                      if (mark) {
+                                        return (
+                                          <tr key={subject} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="p-2.5 font-bold text-slate-800">{subject}</td>
+                                            <td className="p-2.5 text-center font-mono font-bold">{mark.marksObtained} / {mark.maxMarks}</td>
+                                            <td className="p-2.5 text-center font-black text-slate-800">{Math.round((mark.marksObtained / mark.maxMarks) * 100)}%</td>
+                                            <td className="p-2.5 text-center">
+                                              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-bold">
+                                                Uploaded
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        );
+                                      } else {
+                                        return (
+                                          <tr key={subject} className="hover:bg-slate-50/50 transition-colors bg-amber-50/5">
+                                            <td className="p-2.5 font-bold text-slate-400">{subject}</td>
+                                            <td className="p-2.5 text-center text-slate-350 font-mono">-</td>
+                                            <td className="p-2.5 text-center text-slate-350 font-bold">-</td>
+                                            <td className="p-2.5 text-center">
+                                              <span className="px-2 py-0.5 bg-amber-50 text-amber-500 rounded-full text-[9px] font-bold animate-pulse">
+                                                Pending
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        );
+                                      }
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div className="flex gap-2 pt-4 border-t border-slate-100 justify-end">
+                        <button
+                          onClick={() => {
+                            setMarksForm({
+                              ...marksForm,
+                              studentId: selectedStudentDetail.id,
+                            });
+                            setSelectedStudentDetail(null);
+                          }}
+                          className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs rounded-xl shadow transition-all"
+                        >
+                          Quick Load in Marks Entry Form
+                        </button>
+                        <button
+                          onClick={() => setSelectedStudentDetail(null)}
+                          className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-650 font-bold text-xs rounded-xl transition-all"
+                        >
+                          Close Detail
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ══ TAB: SALARY ══ */}
           {activeTab === "salary" && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-              <h3 className="text-base font-extrabold text-slate-800 mb-6">
-                My Monthly Salary Payslips
-              </h3>
-              <div className="space-y-4">
-                {salarySlips
-                  .sort((a, b) => new Date(b.month) - new Date(a.month)) // FIX: Sort newest first
-                  .map((slip) => (
-                    <div
-                      key={slip.id}
-                      className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center text-xs"
-                    >
-                      <div>
-                        <span className="font-extrabold text-slate-800 text-sm block">
-                          {slip.month}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">
-                          Gross: ₹{slip.gross?.toLocaleString()} | Deductions: ₹
-                          {slip.deductions?.toLocaleString()}
-                        </span>
+            <div className="space-y-6">
+              {/* Active Salary Structure Card */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h3 className="text-base font-extrabold text-slate-800 mb-4">
+                  My Active Salary Structure
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Base Salary</span>
+                    <span className="text-lg font-black text-slate-850 block mt-1">
+                      ₹{(teacherRecord?.salaryDetails?.base || teacherRecord?.salary || 40000).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Allowances</span>
+                    <span className="text-lg font-black text-emerald-600 block mt-1">
+                      +₹{(teacherRecord?.salaryDetails?.allowances || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Deductions</span>
+                    <span className="text-lg font-black text-rose-500 block mt-1">
+                      -₹{(teacherRecord?.salaryDetails?.deductions || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                    <span className="text-[10px] text-emerald-600 font-bold block uppercase">Net Payout Rate</span>
+                    <span className="text-lg font-black text-emerald-700 block mt-1">
+                      ₹{(teacherRecord?.salaryDetails?.net || teacherRecord?.salary || 40000).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex justify-between items-center text-xs">
+                  <span className="font-semibold text-indigo-700">Linked Bank Account:</span>
+                  <span className="font-mono font-bold text-slate-800">{teacherRecord?.bankDetails || "SBI A/C: 38291029302"}</span>
+                </div>
+              </div>
+
+              {/* Monthly Salary History slips */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h3 className="text-base font-extrabold text-slate-800 mb-6">
+                  Disbursement History Ledger
+                </h3>
+                <div className="space-y-4">
+                  {salarySlips
+                    .sort((a, b) => new Date(b.month) - new Date(a.month))
+                    .map((slip) => (
+                      <div
+                        key={slip.id}
+                        className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center text-xs gap-4"
+                      >
+                        <div className="space-y-1">
+                          <span className="font-extrabold text-slate-800 text-sm block">
+                            {slip.month}
+                          </span>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400 font-semibold">
+                            <span>Base Pay: ₹{(slip.base || slip.gross || 40000).toLocaleString()}</span>
+                            {slip.allowances !== undefined && <span>Allowances: ₹{slip.allowances.toLocaleString()}</span>}
+                            <span>Deductions: ₹{slip.deductions?.toLocaleString()}</span>
+                          </div>
+                        </div>
+                        <div className="text-left sm:text-right shrink-0 flex sm:flex-col justify-between items-center sm:items-end gap-2">
+                          <div>
+                            <span className="text-base font-black text-emerald-600 block">
+                              ₹{slip.net?.toLocaleString()}
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-500 uppercase block tracking-wider mt-0.5">
+                              {slip.status || "Paid"}
+                            </span>
+                          </div>
+                          <span className="text-[9px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase font-bold">
+                            Direct Deposit
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-sm font-black text-emerald-600 block">
-                          ₹{slip.net?.toLocaleString()}
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold uppercase block mt-1 ${
-                            slip.status === "Paid"
-                              ? "text-emerald-500"
-                              : "text-amber-500"
-                          }`}
-                        >
-                          {slip.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                {salarySlips.length === 0 && (
-                  <p className="text-center py-8 text-slate-400">
-                    No salary records released yet.
-                  </p>
-                )}
+                    ))}
+                  {salarySlips.length === 0 && (
+                    <p className="text-center py-8 text-slate-400">
+                      No disbursed salary records found.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1513,7 +1858,7 @@ export const TeacherDashboard = () => {
 
           {/* ══ TAB: TIMETABLE ══ */}
           {activeTab === "timetable" && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm overflow-hidden">
               <h3 className="text-base font-extrabold text-slate-800 mb-6">
                 Weekly Schedule — Class {selectedClass} - {selectedSection}
               </h3>
@@ -1522,50 +1867,56 @@ export const TeacherDashboard = () => {
                   No timetable set yet. Contact Principal.
                 </p>
               ) : (
-                <div className="space-y-6">
-                  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
-                    (day) => {
-                      const dayTimetable = timetable.filter(
-                        (t) => t.day === day,
-                      );
-                      return (
-                        <div key={day}>
-                          <h4 className="font-bold text-slate-700 mb-3 text-sm">
-                            {day}
-                          </h4>
-                          {dayTimetable.length === 0 ? (
-                            <p className="text-slate-400 text-xs mb-4">
-                              No periods on {day}
-                            </p>
-                          ) : (
-                            <div className="space-y-2 mb-4">
-                              {dayTimetable.map((t, idx) => (
-                                <div
-                                  key={idx}
-                                  className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-100 rounded-2xl flex justify-between items-start text-xs"
-                                >
-                                  <div>
-                                    <span className="font-extrabold text-emerald-600 uppercase block text-[9px] tracking-wider">
-                                      {t.period}
-                                    </span>
-                                    <h5 className="text-sm font-bold text-slate-800 mt-1">
-                                      {t.subject}
-                                    </h5>
-                                    <span className="text-[10px] text-slate-500">
-                                      {t.teacherName}
-                                    </span>
-                                  </div>
-                                  <span className="font-mono text-emerald-600 font-bold text-right">
-                                    {t.time}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    },
-                  )}
+                <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-[11px] font-bold uppercase tracking-wider">
+                          <th className="py-4 px-4 font-extrabold text-slate-800 border-r border-slate-200">Day</th>
+                          {["1st", "2nd", "3rd", "4th", "5th", "6th", "7th"].map((p) => {
+                            const timeStr = getPeriodTime(p, timetableStartHour, timetablePeriodDuration);
+                            return (
+                              <th key={p} className="py-4 px-3 text-center border-r border-slate-200 last:border-r-0 min-w-[140px]">
+                                <span className="block text-indigo-650 font-black">{p}</span>
+                                <span className="block text-[9px] text-slate-400 font-normal mt-0.5 normal-case font-mono">{timeStr}</span>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => (
+                          <tr key={day} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-4 px-4 text-xs font-black text-slate-700 bg-slate-50/40 border-r border-slate-200">
+                              {day}
+                            </td>
+                            {["1st", "2nd", "3rd", "4th", "5th", "6th", "7th"].map((p) => {
+                              const slotData = timetable.find(
+                                (t) => t.day === day && t.period === p
+                              );
+                              return (
+                                <td key={p} className="p-2 border-r border-slate-100 last:border-r-0 text-center vertical-align-middle">
+                                  {slotData ? (
+                                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-left hover:scale-[1.02] hover:bg-emerald-50/90 transition-all">
+                                      <span className="font-extrabold text-emerald-700 text-[11px] block truncate" title={slotData.subject}>
+                                        {slotData.subject}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 block mt-1 truncate" title={slotData.teacherName}>
+                                        👤 {slotData.teacherName}
+                                      </span>
+                                      <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
+                                        ⏱ {getPeriodTime(p, timetableStartHour, timetablePeriodDuration).split(" - ")[0]}
+                                      </span>
+                                    </div>
+                                ) : (
+                                  <span className="text-[11px] text-slate-300 italic">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
