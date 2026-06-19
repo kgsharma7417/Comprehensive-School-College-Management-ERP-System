@@ -2,1168 +2,530 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-// ─── CSS Injection ────────────────────────────────────────────────────────────
+// ─── CSS ─────────────────────────────────────────────────────────────────────
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Open+Sans:wght@300;400;500;600;700&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
   :root {
-    --clay: #b85c38;
-    --clay-deep: #8f3f23;
-    --indigo: #1f2937;
-    --indigo-deep: #14181f;
-    --marigold: #e8a317;
-    --marigold-light: #fdf2dc;
-    --sandstone: #f6f1e7;
-    --sandstone-deep: #ece3d0;
+    --burgundy: #d3465a;
+    --burgundy-dark: #b83048;
+    --orange: #f18940;
+    --orange-dark: #d4732a;
+    --deep-blue: #00477a;
+    --deep-blue-dark: #003460;
     --white: #ffffff;
-    --ink: #211b16;
-    --ink-soft: #5b5248;
-    --ink-faint: #8d8273;
-    --line: #e3d9c6;
-    --sidebar-w: 270px;
-    --topbar-h: 68px;
-    --radius: 14px;
-    --shadow: 0 2px 14px rgba(33,27,22,0.08);
-    --shadow-lg: 0 14px 40px rgba(33,27,22,0.14);
-    --focus: 0 0 0 3px rgba(232,163,23,0.55);
+    --off-white: #f7f8fc;
+    --text-dark: #324c5e;
+    --text-mid: #5a7080;
+    --text-light: #8aa0b0;
   }
+
   html { scroll-behavior: smooth; }
   body {
-    font-family: 'Inter', 'Noto Sans Devanagari', sans-serif;
-    background: var(--sandstone);
-    color: var(--ink);
+    font-family: 'Open Sans', sans-serif;
+    background: var(--white);
+    color: var(--text-dark);
     overflow-x: hidden;
   }
 
-  /* ── Tricolor bar ── */
-  .lp-tricolor { height: 4px; background: linear-gradient(to right, #FF9933 33%, #fff 33%, #fff 66%, #138808 66%); position: fixed; top: 0; left: 0; right: 0; z-index: 300; }
-
-  /* ── Topbar ── */
-  .lp-topbar {
-    position: fixed; top: 4px; left: 0; right: 0; z-index: 200;
-    height: var(--topbar-h);
-    background: var(--indigo-deep);
+  /* ── Top Info Bar ── */
+  .n-topbar {
+    background: var(--deep-blue);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; height: 44px;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  }
+  .n-topbar-links { display: flex; gap: 0; align-items: center; }
+  .n-topbar-link {
+    font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7);
+    text-decoration: none; padding: 0 16px; height: 44px;
     display: flex; align-items: center;
-    padding: 0 22px; gap: 16px;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.25);
+    border-bottom: 3px solid transparent; transition: all 0.2s;
   }
-  .lp-hamburger {
+  .n-topbar-link:hover { color: #fff; }
+  .n-topbar-link.active { color: #fff; border-bottom-color: var(--orange); }
+  .n-topbar-search {
+    display: flex; align-items: center; gap: 8px;
+    color: rgba(255,255,255,0.7); font-size: 13px; cursor: pointer;
+    background: none; border: none; font-family: inherit; transition: color 0.2s;
+  }
+  .n-topbar-search:hover { color: #fff; }
+
+  /* ── Main Navbar ── */
+  .n-navbar {
+    position: fixed; top: 44px; left: 0; right: 0; z-index: 199;
+    display: flex; align-items: center; padding: 0 40px; height: 80px;
+    transition: background 0.35s, box-shadow 0.35s;
+    background: transparent;
+  }
+  .n-navbar.scrolled {
+    background: rgba(0,20,40,0.92);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+  }
+  .n-navbar-logo { display: flex; align-items: center; gap: 14px; text-decoration: none; flex-shrink: 0; }
+  .n-logo-emblem {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 800; color: #fff; overflow: hidden;
+  }
+  .n-logo-emblem img { width: 100%; height: 100%; object-fit: cover; }
+  .n-logo-text { line-height: 1.25; }
+  .n-logo-text .t1 { font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; color: #fff; display: block; letter-spacing: 0.02em; }
+  .n-logo-text .t2 { font-size: 10px; color: rgba(255,255,255,0.65); display: block; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+  .n-navlinks { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+  .n-navlink {
+    font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9);
+    text-decoration: none; padding: 10px 18px; border-radius: 4px;
+    transition: all 0.2s; white-space: nowrap; font-family: 'Open Sans', sans-serif;
     background: none; border: none; cursor: pointer;
-    display: flex; flex-direction: column; gap: 5px;
-    padding: 8px; border-radius: 8px; transition: background 0.2s;
   }
-  .lp-hamburger:hover { background: rgba(255,255,255,0.1); }
-  .lp-hamburger span {
-    display: block; width: 22px; height: 2px;
-    background: var(--marigold); border-radius: 2px;
-    transition: all 0.35s cubic-bezier(.4,0,.2,1);
+  .n-navlink:hover { color: #fff; background: rgba(255,255,255,0.1); }
+  .n-inquire-btn {
+    margin-left: 16px; padding: 10px 24px; border-radius: 100px;
+    border: 2px solid rgba(255,255,255,0.8); background: transparent;
+    color: #fff; font-size: 14px; font-weight: 700;
+    text-decoration: none; display: flex; align-items: center; gap: 6px;
+    transition: all 0.25s; white-space: nowrap; font-family: 'Open Sans', sans-serif; cursor: pointer;
   }
-  .lp-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-  .lp-hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
-  .lp-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  .n-inquire-btn:hover { background: #fff; color: var(--deep-blue); }
+  .n-menu-btn { display: none; background: none; border: none; color: #fff; padding: 8px; cursor: pointer; margin-left: 12px; }
 
-  .lp-logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
-  .lp-logo-emblem {
-    width: 42px; height: 42px; border-radius: 10px;
-    background: linear-gradient(150deg, var(--clay), var(--clay-deep));
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Fraunces', serif; font-size: 17px; font-weight: 700;
-    color: var(--marigold-light); flex-shrink: 0;
-    box-shadow: 0 3px 10px rgba(184,92,56,0.45);
-  }
-  .lp-logo-name { line-height: 1.25; }
-  .lp-logo-name .t1 { font-size: 15px; font-weight: 700; color: #fff; font-family: 'Fraunces', serif; }
-  .lp-logo-name .t2 { font-size: 10px; font-weight: 500; color: #9aa3af; letter-spacing: 0.08em; text-transform: uppercase; }
-
-  .lp-topnav { margin-left: auto; display: flex; gap: 2px; align-items: center; }
-  .lp-topnav a, .lp-topnav button:not(.lp-admit-btn) {
-    position: relative; font-size: 13px; font-weight: 600; color: #e2e8f0;
-    text-decoration: none; padding: 9px 16px; border-radius: 8px; transition: all 0.2s;
-    background: none; border: none; cursor: pointer; font-family: inherit;
-  }
-  .lp-topnav a:hover, .lp-topnav button:not(.lp-admit-btn):hover { background: rgba(255,255,255,0.12); color: #fff; }
-  .lp-topnav a.active, .lp-topnav button:not(.lp-admit-btn).active { color: #fff; }
-  .lp-topnav a.active::after, .lp-topnav button:not(.lp-admit-btn).active::after {
-    content: ''; position: absolute; left: 16px; right: 16px; bottom: 3px;
-    height: 2px; background: var(--marigold); border-radius: 2px;
-  }
-  .lp-admit-btn {
-    background: var(--marigold) !important; color: var(--indigo-deep) !important;
-    font-weight: 700 !important; padding: 9px 18px !important;
-    border-radius: 8px; margin-left: 6px;
-  }
-  .lp-admit-btn::after { display: none !important; }
-  .lp-admit-btn:hover { background: #d4930f !important; color: #fff !important; }
-
-  /* ── Sidebar ── */
-  .lp-sidebar {
-    position: fixed; top: calc(var(--topbar-h) + 4px); left: 0; bottom: 0;
-    width: var(--sidebar-w); z-index: 150;
-    background: var(--white); border-right: 1px solid var(--line);
-    transform: translateX(-100%);
-    transition: transform 0.35s cubic-bezier(.4,0,.2,1);
-    overflow-y: auto; box-shadow: 4px 0 28px rgba(33,27,22,0.10);
-  }
-  .lp-sidebar.open { transform: translateX(0); }
-  .lp-overlay {
-    display: none; position: fixed; inset: 0; z-index: 140;
-    background: rgba(20,16,12,0.4);
-  }
-  .lp-overlay.show { display: block; }
-  .sb-section { padding: 20px 16px 8px; }
-  .sb-label { font-size: 10px; font-weight: 700; color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; padding: 0 8px; margin-bottom: 8px; }
-  .sb-link {
-    display: flex; align-items: center; gap: 11px;
-    padding: 10px 12px; border-radius: 10px;
-    text-decoration: none; color: var(--ink-soft);
-    font-size: 14px; font-weight: 500; transition: all 0.18s; margin-bottom: 2px;
-    background: none; border: none; width: 100%; cursor: pointer; text-align: left;
-  }
-  .sb-link .sb-icon {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: var(--sandstone-deep);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px; flex-shrink: 0; transition: all 0.18s;
-  }
-  .sb-link:hover { background: var(--marigold-light); color: var(--clay-deep); }
-  .sb-link:hover .sb-icon { background: var(--marigold); }
-  .sb-link.active { background: #fdf2dc; color: var(--clay-deep); font-weight: 700; }
-  .sb-link.active .sb-icon { background: var(--clay); color: #fff; }
-  .sb-divider { height: 1px; background: var(--sandstone-deep); margin: 8px 16px; }
-
-  /* ── Main layout ── */
-  .lp-main { margin-top: calc(var(--topbar-h) + 4px); min-height: calc(100vh - var(--topbar-h) - 4px); }
-  .lp-section { display: none; }
-  .lp-section.active { display: block; animation: lpFadeIn 0.4s ease; }
-  @keyframes lpFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-
-  /* ── Hero ── */
-  .lp-hero {
-    background: linear-gradient(165deg, var(--indigo-deep) 0%, var(--indigo) 55%, #2a2118 100%);
-    position: relative; overflow: hidden; min-height: 560px;
-    display: flex; align-items: center; padding: 64px 40px;
-  }
-  .lp-hero::before {
-    content: ''; position: absolute; top: -100px; right: -100px;
-    width: 420px; height: 420px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(184,92,56,0.28), transparent 70%);
-    pointer-events: none;
-  }
-  .lp-hero::after {
-    content: ''; position: absolute; bottom: -80px; left: 12%;
-    width: 320px; height: 320px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(232,163,23,0.12), transparent 70%);
-    pointer-events: none;
-  }
-  .lp-hero-motif {
-    position: absolute; top: 0; right: 0; bottom: 0; width: 38%;
-    opacity: 0.5; pointer-events: none;
-    background-image: radial-gradient(circle at 20% 20%, rgba(232,163,23,0.16) 0, transparent 3%),
-      radial-gradient(circle at 50% 20%, rgba(232,163,23,0.16) 0, transparent 3%),
-      radial-gradient(circle at 80% 20%, rgba(232,163,23,0.16) 0, transparent 3%),
-      radial-gradient(circle at 35% 50%, rgba(232,163,23,0.16) 0, transparent 3%),
-      radial-gradient(circle at 65% 50%, rgba(232,163,23,0.16) 0, transparent 3%),
-      radial-gradient(circle at 20% 80%, rgba(232,163,23,0.16) 0, transparent 3%),
-      radial-gradient(circle at 50% 80%, rgba(232,163,23,0.16) 0, transparent 3%),
-      radial-gradient(circle at 80% 80%, rgba(232,163,23,0.16) 0, transparent 3%);
-    background-size: 70px 70px;
-  }
-
-  /* ── Hero split layout ── */
-  .lp-hero-inner {
-    position: relative; z-index: 2; width: 100%;
-    display: grid; grid-template-columns: 1.05fr 0.95fr;
-    gap: 30px; align-items: center;
-  }
-  .lp-hero-content { max-width: 640px; }
-  .lp-hero-badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: rgba(232,163,23,0.16); border: 1px solid rgba(232,163,23,0.4);
-    color: var(--marigold); font-size: 12px; font-weight: 600;
-    padding: 6px 15px; border-radius: 100px; margin-bottom: 26px; letter-spacing: 0.04em;
-    opacity: 0; animation: lpRise 0.7s cubic-bezier(.16,1,.3,1) 0.05s forwards;
-  }
-  .lp-hero-badge .dot {
-    width: 7px; height: 7px; border-radius: 50%; background: var(--marigold);
-    animation: lpPulse 2s infinite;
-  }
-  @keyframes lpPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-  @keyframes lpRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
-  .lp-hero h1 {
-    font-family: 'Fraunces', serif;
-    font-size: clamp(30px, 5vw, 54px); font-weight: 700; color: #fff;
-    line-height: 1.12; margin-bottom: 18px; letter-spacing: -0.5px;
-    opacity: 0; animation: lpRise 0.75s cubic-bezier(.16,1,.3,1) 0.15s forwards;
-  }
-  .lp-hero h1 em { color: var(--marigold); font-style: normal; }
-  .lp-hero p {
-    font-size: 15.5px; color: #c3c9d3; line-height: 1.8; margin-bottom: 34px; max-width: 560px;
-    opacity: 0; animation: lpRise 0.75s cubic-bezier(.16,1,.3,1) 0.28s forwards;
-  }
-  .lp-hero-btns {
-    display: flex; gap: 12px; flex-wrap: wrap;
-    opacity: 0; animation: lpRise 0.75s cubic-bezier(.16,1,.3,1) 0.4s forwards;
-  }
-  .lp-btn-primary {
-    padding: 14px 30px; border-radius: 10px;
-    background: var(--marigold); color: var(--indigo-deep);
-    font-weight: 700; font-size: 14px; text-decoration: none;
-    border: none; cursor: pointer; transition: all 0.22s;
-    display: inline-flex; align-items: center; gap: 8px; font-family: inherit;
-  }
-  .lp-btn-primary:hover { background: #d4930f; color: #fff; transform: translateY(-2px); }
-  .lp-btn-outline {
-    padding: 14px 30px; border-radius: 10px;
-    border: 1.5px solid rgba(255,255,255,0.28);
-    color: #fff; background: rgba(255,255,255,0.06);
-    font-weight: 600; font-size: 14px; text-decoration: none;
-    cursor: pointer; transition: all 0.22s;
-    display: inline-flex; align-items: center; gap: 8px; font-family: inherit;
-  }
-  .lp-btn-outline:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5); }
-  .lp-hero-stats {
-    display: flex; gap: 34px; flex-wrap: wrap; margin-top: 42px;
-    padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1);
-    opacity: 0; animation: lpRise 0.75s cubic-bezier(.16,1,.3,1) 0.52s forwards;
-  }
-  .lp-hero-stat .num { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700; color: var(--marigold); }
-  .lp-hero-stat .lbl { font-size: 12px; color: #aab2bf; margin-top: 3px; font-weight: 500; }
-
-  /* ── Hero visual (right side — rotating slideshow with mouse-tilt + blended edges) ── */
-  .lp-hero-visual {
-    position: relative; height: 460px; display: flex; align-items: center; justify-content: center;
-    perspective: 1400px;
-    opacity: 0; animation: lpVisualRise 0.9s cubic-bezier(.16,1,.3,1) 0.3s forwards;
-  }
-  @keyframes lpVisualRise { from { opacity: 0; transform: translateY(26px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-
-  .lp-hero-visual-stage {
-    position: relative; width: 100%; height: 100%;
-    transform-style: preserve-3d;
-    transition: transform 0.25s cubic-bezier(.22,1,.36,1);
-    will-change: transform;
-  }
-
-  .lp-hero-glow {
-    position: absolute; inset: -40px;
-    background: radial-gradient(circle at 50% 45%, rgba(232,163,23,0.30) 0%, rgba(184,92,56,0.16) 38%, transparent 72%);
-    filter: blur(6px);
-    animation: lpGlowBreathe 5s ease-in-out infinite;
-    pointer-events: none;
-  }
-  @keyframes lpGlowBreathe { 0%,100% { opacity: 0.7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
-
-  .lp-hero-frame {
-    position: relative; width: 88%; height: 88%; margin: 0 auto;
-    border-radius: 26px; overflow: hidden;
-    transform: translateZ(20px);
-    box-shadow:
-      0 30px 60px -15px rgba(0,0,0,0.55),
-      0 10px 24px -8px rgba(0,0,0,0.4),
-      0 0 0 1px rgba(255,255,255,0.06) inset;
-    animation: lpFloat 6.5s ease-in-out infinite;
-  }
-  @keyframes lpFloat { 0%,100% { transform: translateZ(20px) translateY(0px); } 50% { transform: translateZ(20px) translateY(-14px); } }
-
-  /* stack of crossfading slides inside the frame */
-  .lp-hero-slide {
+  /* ── Hero Slider ── */
+  .n-hero-wrapper { position: relative; width: 100%; height: calc(100vh - 0px); min-height: 600px; overflow: hidden; }
+  .n-hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease; z-index: 0; }
+  .n-hero-slide.active { opacity: 1; z-index: 1; }
+  .n-hero-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .n-hero-overlay {
     position: absolute; inset: 0;
-    opacity: 0;
-    transition: opacity 1.1s ease;
-    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(0,20,50,0.35) 0%, rgba(0,20,50,0.1) 40%, rgba(0,20,50,0.55) 100%);
+    z-index: 2;
   }
-  .lp-hero-slide.is-active {
-    opacity: 1;
-    z-index: 1;
+  .n-hero-content { position: absolute; bottom: 14%; left: 5%; z-index: 3; max-width: 640px; color: #fff; }
+  .n-hero-content h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(32px, 5vw, 68px); font-weight: 700;
+    line-height: 1.12; margin-bottom: 18px;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.35);
   }
-  .lp-hero-slide img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
-    transform: scale(1.06);
-    filter: saturate(1.08) contrast(1.04);
-    animation: lpKenBurns 7s ease-out forwards;
+  .n-hero-content p { font-size: 17px; color: rgba(255,255,255,0.9); line-height: 1.7; text-shadow: 0 1px 8px rgba(0,0,0,0.3); }
+  .n-hero-dots { position: absolute; bottom: 5%; right: 5%; display: flex; gap: 10px; align-items: center; z-index: 4; }
+  .n-hero-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: rgba(255,255,255,0.45); border: 2px solid rgba(255,255,255,0.6);
+    cursor: pointer; transition: all 0.3s; padding: 0;
   }
-  @keyframes lpKenBurns {
-    from { transform: scale(1.0); }
-    to   { transform: scale(1.12); }
+  .n-hero-dot.active { background: var(--orange); border-color: var(--orange); transform: scale(1.3); }
+  .n-hero-dot-num { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.8); }
+
+  /* Sticky side portal button */
+  .n-portal-side-btn {
+    position: fixed; right: -62px; top: 50%;
+    transform: translateY(-50%) rotate(90deg);
+    transform-origin: right center;
+    z-index: 150; border-radius: 4px 4px 0 0;
+    background: var(--burgundy); color: #fff;
+    padding: 13px 24px; font-size: 13px; font-weight: 700;
+    text-decoration: none; display: flex; align-items: center; gap: 8px;
+    transition: right 0.3s; letter-spacing: 0.05em;
+    font-family: 'Open Sans', sans-serif; white-space: nowrap;
+  }
+  .n-portal-side-btn:hover { right: 0; }
+
+  /* ── Stats Bar ── */
+  .n-stats-bar {
+    background: var(--deep-blue);
+    display: flex; justify-content: center; gap: 0;
+    flex-wrap: wrap;
+  }
+  .n-stat-item {
+    padding: 20px 40px; text-align: center;
+    border-right: 1px solid rgba(255,255,255,0.12);
+    flex: 1; min-width: 120px;
+  }
+  .n-stat-item:last-child { border-right: none; }
+  .n-stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px; font-weight: 700; color: var(--orange);
+    line-height: 1;
+  }
+  .n-stat-label { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* ── Leader Split Section ── */
+  .n-leaders { display: grid; grid-template-columns: 1fr 1fr; min-height: 500px; }
+  .n-leader-left {
+    background: var(--burgundy); position: relative; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 50px 50px 40px; min-height: 460px;
+  }
+  .n-leader-right {
+    background: var(--orange); position: relative; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 50px 50px 40px; min-height: 460px;
+  }
+  .n-leader-quote-mark {
+    position: absolute; top: 40px; left: 44px;
+    font-family: 'Playfair Display', serif; font-size: 100px; line-height: 0.8;
+    color: rgba(255,255,255,0.18); pointer-events: none;
+  }
+  .n-leader-bg-pattern {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 60%;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+    background-size: 22px 22px; pointer-events: none;
+  }
+  .n-leader-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(20px, 2.5vw, 30px); font-weight: 600;
+    color: rgba(255,255,255,0.9); line-height: 1.35;
+    margin-bottom: 22px; margin-top: 60px; max-width: 360px;
+  }
+  .n-leader-quote { font-size: 15px; color: rgba(255,255,255,0.85); line-height: 1.8; margin-bottom: 30px; max-width: 440px; }
+  .n-leader-divider { width: 60px; height: 2px; background: rgba(255,255,255,0.4); margin-bottom: 18px; }
+  .n-leader-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: #fff; }
+  .n-leader-title { font-size: 13px; color: rgba(255,255,255,0.75); font-weight: 500; margin-top: 4px; }
+  .n-leader-photo {
+    position: absolute; bottom: 0; right: 0;
+    width: 45%; max-height: 420px;
+    object-fit: cover; object-position: top center; pointer-events: none;
   }
 
-  /* blended / faded edges so the photo melts into the hero background */
-  .lp-hero-frame-shade {
-    position: absolute; inset: 0; z-index: 2; pointer-events: none;
-    background:
-      linear-gradient(180deg, rgba(20,24,31,0.5) 0%, transparent 22%, transparent 70%, rgba(20,24,31,0.65) 100%),
-      linear-gradient(90deg, rgba(20,24,31,0.55) 0%, transparent 26%, transparent 78%, rgba(20,24,31,0.4) 100%);
-  }
-  .lp-hero-frame-vignette {
-    position: absolute; inset: 0; z-index: 2; pointer-events: none;
-    box-shadow: inset 0 0 70px 18px rgba(20,24,31,0.55);
-    mix-blend-mode: multiply;
-    border-radius: 26px;
-  }
+  /* ── Section Base ── */
+  .n-section { padding: 80px 40px; }
+  .n-section.alt-bg { background: var(--off-white); }
+  .n-section-inner { max-width: 1200px; margin: 0 auto; }
+  .n-section-header { text-align: center; margin-bottom: 50px; }
+  .n-section-title { font-family: 'Playfair Display', serif; font-size: clamp(26px, 3.5vw, 44px); font-weight: 700; color: var(--text-dark); line-height: 1.2; }
+  .n-section-sub { font-size: 16px; color: var(--text-mid); margin-top: 14px; line-height: 1.7; max-width: 560px; margin-left: auto; margin-right: auto; }
 
-  .lp-hero-frame-caption {
-    position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
-    padding: 22px 22px 16px;
-    background: linear-gradient(0deg, rgba(15,18,24,0.9) 0%, transparent 100%);
-    color: #fff; font-size: 13.5px; font-weight: 600;
-    transform: translateZ(28px);
-    display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
-  }
-  .lp-hero-frame-caption span.txt {
-    transition: opacity 0.4s ease;
-  }
+  /* ── Campuses / Feature Cards ── */
+  .n-campuses-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .n-campus-card { border-radius: 16px; overflow: hidden; position: relative; cursor: pointer; transition: transform 0.3s; text-decoration: none; }
+  .n-campus-card:hover { transform: translateY(-6px); }
+  .n-campus-card-img { width: 100%; height: 280px; object-fit: cover; display: block; }
+  .n-campus-card-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 24px; color: #fff; }
+  .n-campus-card-overlay h3 { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 700; line-height: 1.3; margin-bottom: 6px; }
+  .n-campus-card-overlay p { font-size: 13px; color: rgba(255,255,255,0.85); font-weight: 500; }
 
-  /* progress dots for the slideshow, sitting in the caption bar */
-  .lp-hero-frame-dots { display: flex; gap: 6px; flex-shrink: 0; padding-bottom: 2px; }
-  .lp-hero-frame-dot {
-    width: 16px; height: 3px; border-radius: 3px;
-    background: rgba(255,255,255,0.3); border: none; cursor: pointer; padding: 0;
-    transition: background 0.25s;
+  /* ── Admissions CTA ── */
+  .n-admissions { display: grid; grid-template-columns: 1fr 1fr; min-height: 360px; background: var(--burgundy); }
+  .n-admissions-content { padding: 70px 60px; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+  .n-admissions-content h2 { font-family: 'Playfair Display', serif; font-size: clamp(36px,4vw,56px); font-weight: 700; color: #fff; line-height: 1.1; }
+  .n-admissions-content p { font-size: 16px; color: rgba(255,255,255,0.85); line-height: 1.7; max-width: 380px; }
+  .n-admissions-btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px;
+    border-radius: 100px; border: 2px solid rgba(255,255,255,0.85); background: transparent;
+    color: #fff; font-size: 14px; font-weight: 700; text-decoration: none;
+    width: fit-content; transition: all 0.25s; font-family: 'Open Sans', sans-serif; cursor: pointer;
   }
-  .lp-hero-frame-dot.is-active { background: var(--marigold); }
+  .n-admissions-btn:hover { background: #fff; color: var(--burgundy); }
+  .n-admissions-img { height: 100%; width: 100%; object-fit: cover; display: block; }
 
-  /* floating accent chips around the frame, drifting gently */
-  .lp-hero-chip {
-    position: absolute; z-index: 4;
-    background: rgba(20,24,31,0.72);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 14px; padding: 10px 14px;
-    display: flex; align-items: center; gap: 9px;
-    box-shadow: 0 14px 30px rgba(0,0,0,0.35);
-    transform: translateZ(60px);
+  /* ── Notices ── */
+  .n-notices-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .n-notice-card {
+    display: flex; gap: 18px; align-items: flex-start;
+    background: #fff; border-radius: 12px; padding: 22px;
+    border: 1px solid #e8edf3; transition: border-color 0.2s, transform 0.2s;
   }
-  .lp-hero-chip .ic {
-    width: 30px; height: 30px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center; font-size: 15px;
-    background: var(--marigold); flex-shrink: 0;
-  }
-  .lp-hero-chip .tx { line-height: 1.25; }
-  .lp-hero-chip .tx .v { font-family: 'Fraunces', serif; font-size: 14px; font-weight: 700; color: #fff; }
-  .lp-hero-chip .tx .l { font-size: 10px; color: #aab2bf; }
-  .lp-chip-1 { top: 6%; left: -6%; animation: lpDriftA 5.5s ease-in-out infinite; }
-  .lp-chip-2 { bottom: 13%; right: -7%; animation: lpDriftB 6.2s ease-in-out infinite; }
-  @keyframes lpDriftA { 0%,100% { transform: translateZ(60px) translateY(0) rotate(-2deg); } 50% { transform: translateZ(60px) translateY(-10px) rotate(1deg); } }
-  @keyframes lpDriftB { 0%,100% { transform: translateZ(60px) translateY(0) rotate(2deg); } 50% { transform: translateZ(60px) translateY(12px) rotate(-1deg); } }
+  .n-notice-card:hover { border-color: var(--burgundy); transform: translateX(4px); }
+  .n-notice-date { flex-shrink: 0; text-align: center; background: var(--deep-blue); border-radius: 10px; padding: 10px 14px; color: #fff; min-width: 56px; }
+  .n-notice-date .day { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; }
+  .n-notice-date .mon { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--orange); }
+  .n-notice-title { font-size: 15px; font-weight: 700; color: var(--text-dark); margin-bottom: 6px; }
+  .n-notice-desc { font-size: 13px; color: var(--text-mid); line-height: 1.65; }
+  .n-notice-tag { display: inline-block; margin-top: 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; }
+  .n-tag-exam { background: #fde8e8; color: #b83048; }
+  .n-tag-event { background: #e3e9fb; color: #2d3f8f; }
+  .n-tag-holiday { background: #e2f0d9; color: #3a5a2a; }
+  .n-tag-meeting { background: #fff3e0; color: #8a5a06; }
 
-  .lp-hero-ring {
-    position: absolute; border-radius: 50%;
-    border: 1px solid rgba(232,163,23,0.25);
-    pointer-events: none; transform-style: preserve-3d;
-  }
-  .lp-ring-1 { width: 120%; height: 120%; top: -10%; left: -10%; transform: translateZ(-10px); animation: lpSpin 26s linear infinite; }
-  .lp-ring-2 { width: 96%; height: 96%; top: 2%; left: 2%; border-color: rgba(184,92,56,0.22); transform: translateZ(-4px); animation: lpSpin 18s linear infinite reverse; }
-  @keyframes lpSpin { from { transform: translateZ(-10px) rotate(0deg); } to { transform: translateZ(-10px) rotate(360deg); } }
+  /* ── Features ── */
+  .n-features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 24px; }
+  .n-feature-card { background: #fff; border-radius: 16px; padding: 34px 28px; border: 1px solid #e8edf3; transition: all 0.25s; }
+  .n-feature-card:hover { transform: translateY(-5px); box-shadow: 0 16px 40px rgba(0,71,122,0.1); border-color: var(--deep-blue); }
+  .n-feature-icon { width: 54px; height: 54px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 20px; }
+  .n-feature-card h3 { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 10px; }
+  .n-feature-card p { font-size: 14px; color: var(--text-mid); line-height: 1.7; }
 
-  /* particles drifting behind the frame */
-  .lp-hero-particle {
-    position: absolute; border-radius: 50%; background: var(--marigold);
-    opacity: 0.55; pointer-events: none; transform: translateZ(-2px);
-    animation: lpParticleFloat 7s ease-in-out infinite;
+  /* ── Principal ── */
+  .n-principal-card {
+    background: linear-gradient(135deg, var(--deep-blue) 0%, var(--deep-blue-dark) 100%);
+    border-radius: 24px; padding: 56px;
+    display: grid; grid-template-columns: 180px 1fr; gap: 48px;
+    align-items: center; color: #fff;
   }
-  @keyframes lpParticleFloat { 0%,100% { transform: translateZ(-2px) translateY(0) translateX(0); opacity: 0.35; } 50% { transform: translateZ(-2px) translateY(-22px) translateX(8px); opacity: 0.75; } }
-
-  @media (prefers-reduced-motion: reduce) {
-    .lp-hero-frame, .lp-hero-chip, .lp-hero-ring, .lp-hero-particle, .lp-hero-glow,
-    .lp-hero-badge, .lp-hero h1, .lp-hero p, .lp-hero-btns, .lp-hero-stats, .lp-hero-visual,
-    .lp-hero-slide img {
-      animation: none !important; opacity: 1 !important; transform: none !important;
-    }
-    .lp-hero-slide { transition: none !important; }
-  }
-
-  /* ── Image Slider ── */
-  .lp-slider { position: relative; overflow: hidden; height: 420px; }
-  .lp-slider-track { display: flex; height: 100%; transition: transform 0.6s cubic-bezier(.4,0,.2,1); }
-  .lp-slide { flex-shrink: 0; width: 100%; height: 100%; position: relative; }
-  .lp-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .lp-slide-caption {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(0deg, rgba(20,16,12,0.85) 0%, transparent 100%);
-    color: #fff; padding: 32px 28px 20px;
-    font-size: 15px; font-weight: 600;
-  }
-  .lp-slider-btn {
-    position: absolute; top: 50%; transform: translateY(-50%);
-    background: rgba(20,16,12,0.55); border: none; cursor: pointer;
-    width: 42px; height: 42px; border-radius: 50%;
-    color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center;
-    transition: background 0.2s; z-index: 10;
-  }
-  .lp-slider-btn:hover { background: var(--clay); }
-  .lp-slider-btn.prev { left: 16px; }
-  .lp-slider-btn.next { right: 16px; }
-  .lp-slider-dots { position: absolute; bottom: 12px; right: 16px; display: flex; gap: 6px; z-index: 10; }
-  .lp-slider-dot {
-    width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.45);
-    border: none; cursor: pointer; transition: background 0.2s; padding: 0;
-  }
-  .lp-slider-dot.active { background: var(--marigold); }
-
-  /* ── Quick links bar ── */
-  .lp-quickbar { background: #fff; border-bottom: 1px solid var(--line); padding: 16px 24px; }
-  .lp-quickbar-inner { max-width: 1100px; margin: 0 auto; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-  .lp-qlink {
-    display: flex; align-items: center; gap: 7px; padding: 9px 16px;
-    border-radius: 10px; text-decoration: none; font-size: 13px; font-weight: 600;
-    border: none; cursor: pointer; font-family: inherit; transition: opacity 0.18s;
-  }
-  .lp-qlink:hover { opacity: 0.82; }
-
-  /* ── Section common ── */
-  .lp-wrap { max-width: 1100px; margin: 0 auto; padding: 64px 24px; }
-  .lp-sec-header { text-align: center; margin-bottom: 54px; }
-  .lp-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--clay); margin-bottom: 12px; }
-  .lp-sec-title { font-family: 'Fraunces', serif; font-size: clamp(26px, 3.5vw, 38px); font-weight: 700; color: var(--indigo-deep); letter-spacing: -0.5px; line-height: 1.2; }
-  .lp-sec-sub { margin-top: 14px; font-size: 15px; color: var(--ink-soft); line-height: 1.7; max-width: 540px; margin-left: auto; margin-right: auto; }
-
-  /* ── Why-us cards ── */
-  .lp-why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; }
-  .lp-why-card {
-    background: #fff; border-radius: var(--radius); padding: 28px 22px;
-    border: 1px solid var(--line); box-shadow: var(--shadow);
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .lp-why-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--clay); }
-  .lp-why-icon { font-size: 32px; margin-bottom: 14px; }
-  .lp-why-title { font-size: 16px; font-weight: 700; color: var(--indigo-deep); margin-bottom: 8px; }
-  .lp-why-desc { font-size: 13.5px; color: var(--ink-soft); line-height: 1.7; }
-
-  /* ── Principal quote ── */
-  .lp-principal-strip { background: linear-gradient(150deg, var(--marigold-light) 0%, #f6f1e7 100%); padding: 64px 24px; border-top: 1px solid var(--line); }
-  .lp-principal-strip-inner { max-width: 800px; margin: 0 auto; text-align: center; }
-  .lp-pquote { font-family: 'Fraunces', serif; font-size: 19px; color: var(--indigo-deep); line-height: 1.75; margin: 22px 0 28px; font-weight: 600; font-style: italic; }
-
-  /* ── About ── */
-  .lp-about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: start; }
-  .lp-about-img-wrap { position: relative; }
-  .lp-about-img { width: 100%; border-radius: var(--radius); aspect-ratio: 4/3; object-fit: cover; box-shadow: var(--shadow-lg); }
-  .lp-about-badge {
-    position: absolute; bottom: -20px; right: -20px;
-    background: var(--clay); color: #fff; padding: 18px 22px; border-radius: 14px;
-    text-align: center; box-shadow: var(--shadow-lg);
-  }
-  .lp-about-badge .num { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700; }
-  .lp-about-badge .lbl { font-size: 11px; color: var(--marigold-light); margin-top: 2px; }
-  .lp-about-content h2 { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700; color: var(--indigo-deep); margin-bottom: 18px; }
-  .lp-about-content p { font-size: 14.5px; color: var(--ink-soft); line-height: 1.85; margin-bottom: 16px; }
-  .lp-info-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 26px; }
-  .lp-info-card { background: var(--sandstone-deep); border-radius: 10px; padding: 14px 16px; border-left: 4px solid var(--marigold); }
-  .lp-info-card .label { font-size: 11px; color: var(--ink-faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
-  .lp-info-card .value { font-size: 14px; font-weight: 700; color: var(--indigo-deep); margin-top: 3px; }
-
-  /* ── Principal cards ── */
-  .lp-principal-card {
-    background: linear-gradient(150deg, var(--indigo-deep), var(--indigo));
-    border-radius: 20px; padding: 48px;
-    display: flex; gap: 40px; align-items: flex-start;
-    box-shadow: var(--shadow-lg); color: #fff; margin-bottom: 24px;
-  }
-  .lp-principal-avatar {
-    width: 116px; height: 116px; border-radius: 16px; flex-shrink: 0;
-    background: linear-gradient(150deg, var(--clay), var(--clay-deep));
+  .n-principal-avatar {
+    width: 160px; height: 160px; border-radius: 20px;
+    background: rgba(255,255,255,0.12); border: 3px solid rgba(255,255,255,0.25);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Fraunces', serif; font-size: 36px; font-weight: 700; color: var(--marigold-light);
-    box-shadow: 0 6px 22px rgba(184,92,56,0.4);
+    font-family: 'Playfair Display', serif; font-size: 52px; font-weight: 700;
+    color: rgba(255,255,255,0.85); flex-shrink: 0;
   }
-  .lp-manager-card { background: linear-gradient(150deg, #5b4636, #3e2f24); }
-  .lp-manager-avatar { background: linear-gradient(150deg, #8a9a5b, #6b7d42); color: #f3f0e3; }
-  .lp-principal-quote { font-size: 15px; line-height: 1.9; color: #d4d8de; margin-bottom: 26px; }
-  .lp-principal-name { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 700; color: var(--marigold); }
-  .lp-principal-role { font-size: 13px; color: #9aa3af; margin-top: 4px; }
-
-  /* ── Curriculum ── */
-  .lp-class-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 48px; }
-  .lp-class-card {
-    background: #fff; border: 1px solid var(--line); border-radius: 12px;
-    padding: 22px; text-align: center; box-shadow: var(--shadow); transition: all 0.2s;
-  }
-  .lp-class-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-  .lp-class-card .icon { font-size: 26px; margin-bottom: 10px; }
-  .lp-class-card .name { font-weight: 700; color: var(--indigo-deep); font-size: 15px; }
-  .lp-class-card .range { font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
-  .lp-stream-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-bottom: 48px; }
-  .lp-stream-card {
-    background: #fff; border-radius: var(--radius); border: 1px solid var(--line);
-    padding: 28px 24px; transition: all 0.22s; box-shadow: var(--shadow);
-  }
-  .lp-stream-card:hover { border-color: var(--clay); transform: translateY(-4px); box-shadow: var(--shadow-lg); }
-  .lp-stream-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 18px; }
-  .lp-stream-card h3 { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 700; color: var(--indigo-deep); margin-bottom: 10px; }
-  .lp-stream-card p { font-size: 13.5px; color: var(--ink-soft); line-height: 1.7; }
-  .lp-tag { display: inline-block; margin-top: 14px; padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 700; }
-  .lp-subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .lp-subject-chip {
-    background: #fff; border: 1px solid var(--line); border-radius: 10px;
-    padding: 13px 16px; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow);
-  }
-  .lp-subject-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--marigold); flex-shrink: 0; }
-  .lp-subject-chip span { font-size: 13.5px; font-weight: 600; color: var(--indigo-deep); }
-
-  /* ── Faculty ── */
-  .lp-teachers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px; }
-  .lp-teacher-card {
-    background: #fff; border-radius: var(--radius); border: 1px solid var(--line);
-    padding: 28px 20px; text-align: center; box-shadow: var(--shadow); transition: all 0.22s;
-  }
-  .lp-teacher-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--marigold); }
-  .lp-teacher-avatar {
-    width: 78px; height: 78px; border-radius: 50%; margin: 0 auto 16px;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Fraunces', serif; font-size: 26px; font-weight: 700; color: #fff;
-  }
-  .lp-teacher-name { font-size: 16px; font-weight: 700; color: var(--indigo-deep); }
-  .lp-teacher-subject { font-size: 12px; color: var(--clay); font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .lp-teacher-qual { font-size: 12px; color: var(--ink-faint); margin-top: 6px; }
-  .lp-teacher-exp { margin-top: 14px; padding: 6px 14px; border-radius: 100px; background: var(--marigold-light); color: var(--clay-deep); font-size: 11px; font-weight: 700; display: inline-block; }
+  .n-principal-quote-mark { font-family: 'Playfair Display', serif; font-size: 80px; line-height: 0.7; color: rgba(255,255,255,0.2); margin-bottom: 16px; }
+  .n-principal-quote { font-size: 16px; line-height: 1.9; color: rgba(255,255,255,0.85); font-style: italic; margin-bottom: 28px; }
+  .n-principal-divider { width: 48px; height: 2px; background: var(--orange); margin-bottom: 16px; }
+  .n-principal-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--orange); }
+  .n-principal-role { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 4px; }
 
   /* ── Gallery ── */
-  .lp-gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 200px; gap: 12px; }
-  .lp-gallery-item { border-radius: var(--radius); overflow: hidden; position: relative; cursor: pointer; background: var(--sandstone-deep); }
-  .lp-gallery-item:nth-child(1) { grid-column: span 2; grid-row: span 2; }
-  .lp-gallery-item:nth-child(4) { grid-column: span 2; }
-  .lp-gallery-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; display: block; }
-  .lp-gallery-item:hover .lp-gallery-img { transform: scale(1.06); }
-  .lp-gallery-caption {
+  .n-gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 220px; gap: 14px; }
+  .n-gallery-item { border-radius: 14px; overflow: hidden; position: relative; cursor: pointer; }
+  .n-gallery-item:nth-child(1) { grid-column: span 2; grid-row: span 2; }
+  .n-gallery-item:nth-child(4) { grid-column: span 2; }
+  .n-gallery-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s; }
+  .n-gallery-item:hover .n-gallery-img { transform: scale(1.06); }
+  .n-gallery-caption {
     position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(0deg, rgba(20,16,12,0.85) 0%, transparent 100%);
+    background: linear-gradient(0deg, rgba(0,20,50,0.85) 0%, transparent 100%);
     color: #fff; padding: 20px 16px 14px; font-size: 13px; font-weight: 600;
     opacity: 0; transition: opacity 0.3s;
   }
-  .lp-gallery-item:hover .lp-gallery-caption { opacity: 1; }
-
-  /* ── Notices ── */
-  .lp-notice-list { display: flex; flex-direction: column; gap: 14px; }
-  .lp-notice-item {
-    background: #fff; border-radius: var(--radius); border: 1px solid var(--line);
-    padding: 20px 22px; display: flex; gap: 18px; align-items: flex-start;
-    box-shadow: var(--shadow); transition: all 0.2s;
-  }
-  .lp-notice-item:hover { border-color: var(--clay); transform: translateX(4px); }
-  .lp-notice-date { flex-shrink: 0; text-align: center; padding: 10px 14px; background: var(--indigo-deep); border-radius: 10px; color: #fff; min-width: 56px; }
-  .lp-notice-date .day { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; }
-  .lp-notice-date .mon { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--marigold); }
-  .lp-notice-title { font-size: 15px; font-weight: 700; color: var(--indigo-deep); margin-bottom: 5px; }
-  .lp-notice-desc { font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
-  .lp-ntag { display: inline-block; margin-top: 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; }
-  .lp-tag-exam { background: #fbe3dc; color: #8f3f23; }
-  .lp-tag-event { background: #e3e9fb; color: #2d3f8f; }
-  .lp-tag-holiday { background: #e2ecd9; color: #3f5a2a; }
-  .lp-tag-meeting { background: var(--marigold-light); color: #8a5a06; }
+  .n-gallery-item:hover .n-gallery-caption { opacity: 1; }
 
   /* ── Contact ── */
-  .lp-contact-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 40px; align-items: start; }
-  .lp-contact-block { display: flex; flex-direction: column; gap: 16px; }
-  .lp-contact-card {
-    background: #fff; border-radius: var(--radius); border: 1px solid var(--line);
-    padding: 18px 20px; display: flex; gap: 14px; align-items: flex-start; box-shadow: var(--shadow);
+  .n-contact-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; align-items: start; }
+  .n-contact-info { display: flex; flex-direction: column; gap: 16px; }
+  .n-contact-card {
+    display: flex; gap: 16px; align-items: flex-start;
+    background: var(--off-white); border-radius: 12px; padding: 18px 20px;
+    border: 1px solid #e8edf3;
   }
-  .lp-contact-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--indigo-deep); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-  .lp-contact-label { font-size: 11px; color: var(--ink-faint); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 3px; }
-  .lp-contact-value { font-size: 14px; font-weight: 600; color: var(--indigo-deep); }
-  .lp-map { border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-lg); }
-  .lp-map iframe { width: 100%; height: 320px; border: none; display: block; }
-  .lp-field-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 5px; display: block; }
-  .lp-field-input, .lp-field-select, .lp-field-textarea {
-    width: 100%; padding: 11px 14px; border: 1px solid var(--line); border-radius: 8px;
-    font-size: 13.5px; font-family: inherit; outline: none; background: #fff; color: var(--ink);
-    transition: border-color 0.2s;
+  .n-contact-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--deep-blue); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .n-contact-label { font-size: 11px; color: var(--text-light); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .n-contact-value { font-size: 14.5px; font-weight: 600; color: var(--text-dark); line-height: 1.5; }
+  .n-contact-form { display: flex; flex-direction: column; gap: 14px; }
+  .n-field-label { font-size: 12px; font-weight: 600; color: var(--text-mid); margin-bottom: 5px; display: block; }
+  .n-field-input, .n-field-select, .n-field-textarea {
+    width: 100%; padding: 12px 16px; border: 1.5px solid #d8e4ee; border-radius: 10px;
+    font-size: 14px; font-family: 'Open Sans', sans-serif;
+    outline: none; background: #fff; color: var(--text-dark); transition: border-color 0.2s;
   }
-  .lp-field-input:focus, .lp-field-select:focus, .lp-field-textarea:focus { border-color: var(--clay); }
-  .lp-field-textarea { resize: none; }
-  .lp-submit-btn {
-    padding: 13px; background: var(--indigo-deep); color: #fff; border: none; border-radius: 8px;
-    font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.2s; width: 100%;
+  .n-field-input:focus, .n-field-select:focus, .n-field-textarea:focus { border-color: var(--deep-blue); }
+  .n-field-textarea { resize: none; }
+  .n-submit-btn {
+    padding: 14px; background: var(--deep-blue); color: #fff;
+    border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: 'Open Sans', sans-serif; transition: background 0.2s; width: 100%;
   }
-  .lp-submit-btn:hover { background: var(--indigo); }
-  .lp-form-ok { display: none; font-size: 13px; padding: 11px 14px; border-radius: 8px; background: #e2ecd9; color: #3f5a2a; margin-top: 8px; }
-  .lp-form-ok.show { display: block; }
+  .n-submit-btn:hover { background: var(--deep-blue-dark); }
+  .n-form-success { background: #e2f0d9; color: #3a5a2a; padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; }
 
   /* ── Footer ── */
-  .lp-footer { background: var(--indigo-deep); color: #aab2bf; padding: 50px 24px 26px; margin-top: 64px; }
-  .lp-footer-inner { max-width: 1100px; margin: 0 auto; }
-  .lp-footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 40px; padding-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-  .lp-footer-brand-name { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 700; color: #fff; margin-bottom: 12px; }
-  .lp-footer-brand p { font-size: 13px; line-height: 1.8; }
-  .lp-footer-col h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #fff; margin-bottom: 16px; }
-  .lp-footer-col a, .lp-footer-col button {
-    display: block; font-size: 13px; color: #aab2bf; text-decoration: none; margin-bottom: 11px;
-    transition: color 0.18s; background: none; border: none; cursor: pointer; text-align: left; font-family: inherit; padding: 0;
+  .n-footer { background: var(--deep-blue); color: rgba(255,255,255,0.7); padding: 60px 40px 28px; }
+  .n-footer-inner { max-width: 1200px; margin: 0 auto; }
+  .n-footer-grid { display: grid; grid-template-columns: 200px 1fr 1fr 1fr 1fr; gap: 40px; padding-bottom: 48px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .n-footer-logo { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+  .n-footer-logo-emblem {
+    width: 66px; height: 66px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 800; color: #fff; overflow: hidden;
   }
-  .lp-footer-col a:hover, .lp-footer-col button:hover { color: var(--marigold); }
-  .lp-footer-bottom { padding-top: 24px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; flex-wrap: wrap; gap: 8px; color: #6b7280; }
-  .lp-footer-badges { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
-  .lp-footer-badge { background: rgba(255,255,255,0.08); padding: 5px 12px; border-radius: 100px; font-size: 11px; font-weight: 600; color: #aab2bf; border: 1px solid rgba(255,255,255,0.1); }
+  .n-footer-logo-emblem img { width: 100%; height: 100%; object-fit: cover; }
+  .n-footer-logo-name { font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; color: #fff; line-height: 1.4; }
+  .n-footer-logo-est { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .n-footer-col h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #fff; margin-bottom: 18px; }
+  .n-footer-col a, .n-footer-col button {
+    display: block; font-size: 13px; color: rgba(255,255,255,0.65);
+    text-decoration: none; margin-bottom: 12px;
+    transition: color 0.18s; background: none; border: none;
+    cursor: pointer; text-align: left; font-family: 'Open Sans', sans-serif; padding: 0;
+  }
+  .n-footer-col a:hover, .n-footer-col button:hover { color: var(--orange); }
+  .n-footer-social { display: flex; gap: 12px; margin-top: 16px; }
+  .n-social-link {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.7); font-size: 16px;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .n-social-link:hover { border-color: var(--orange); color: var(--orange); }
+  .n-footer-bottom {
+    padding-top: 24px; display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: rgba(255,255,255,0.4); flex-wrap: wrap; gap: 10px;
+  }
 
-  /* ── ERP Portal Link button ── */
-  .lp-portal-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 22px; border-radius: 10px;
-    background: var(--marigold); color: var(--indigo-deep);
-    font-weight: 700; font-size: 13px; text-decoration: none;
-    border: none; cursor: pointer; transition: all 0.22s; font-family: inherit;
-  }
-  .lp-portal-btn:hover { background: #d4930f; }
+  /* ── Mobile Menu ── */
+  .n-mobile-menu { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 300; transform: translateX(-100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1); }
+  .n-mobile-menu.open { transform: translateX(0); }
+  .n-mobile-menu-panel { position: absolute; top: 0; left: 0; bottom: 0; width: 280px; background: var(--deep-blue); padding: 24px 0; display: flex; flex-direction: column; overflow-y: auto; box-shadow: 8px 0 32px rgba(0,0,0,0.35); }
+  .n-mobile-menu-close { background: none; border: none; color: rgba(255,255,255,0.7); font-size: 22px; cursor: pointer; padding: 8px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; font-family: 'Open Sans', sans-serif; }
+  .n-mobile-menu-close:hover { color: #fff; }
+  .n-mobile-link { display: block; padding: 14px 24px; font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.8); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.08); transition: all 0.18s; cursor: pointer; background: none; font-family: 'Open Sans', sans-serif; text-align: left; width: 100%; }
+  .n-mobile-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .n-mobile-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.55); }
 
   /* ── Responsive ── */
-  @media (max-width: 860px) {
-    .lp-topnav a:not(.lp-admit-btn) { display: none; }
+  @media (max-width: 1024px) {
+    .n-campuses-grid { grid-template-columns: 1fr 1fr; }
+    .n-footer-grid { grid-template-columns: 1fr 1fr 1fr; }
   }
   @media (max-width: 768px) {
-    .lp-hero { padding: 44px 22px; }
-    .lp-hero-inner { grid-template-columns: 1fr; }
-    .lp-hero-visual { height: 300px; order: -1; margin-bottom: 18px; }
-    .lp-hero-chip { display: none; }
-    .lp-about-grid, .lp-contact-grid { grid-template-columns: 1fr; }
-    .lp-about-badge { right: 10px; bottom: -16px; }
-    .lp-principal-card { flex-direction: column; gap: 24px; padding: 32px 24px; }
-    .lp-principal-avatar { width: 80px; height: 80px; font-size: 28px; }
-    .lp-gallery-grid { grid-template-columns: 1fr 1fr; grid-auto-rows: 160px; }
-    .lp-gallery-item:nth-child(1) { grid-column: span 2; grid-row: span 1; }
-    .lp-gallery-item:nth-child(4) { grid-column: span 1; }
-    .lp-footer-grid { grid-template-columns: 1fr; }
-    .lp-info-row { grid-template-columns: 1fr; }
-    .lp-wrap { padding: 44px 18px; }
-    .lp-slider { height: 260px; }
+    .n-topbar { padding: 0 20px; }
+    .n-navbar { padding: 0 20px; height: 70px; }
+    .n-navlinks .n-navlink:not(.n-inquire-btn) { display: none; }
+    .n-menu-btn { display: block; }
+    .n-hero-wrapper { height: 70vh; }
+    .n-leaders { grid-template-columns: 1fr; }
+    .n-admissions { grid-template-columns: 1fr; }
+    .n-admissions-img { height: 280px; }
+    .n-campuses-grid { grid-template-columns: 1fr; }
+    .n-notices-grid { grid-template-columns: 1fr; }
+    .n-principal-card { grid-template-columns: 1fr; padding: 36px 28px; text-align: center; }
+    .n-principal-avatar { margin: 0 auto; }
+    .n-principal-divider { margin: 0 auto 16px; }
+    .n-gallery-grid { grid-template-columns: 1fr 1fr; grid-auto-rows: 160px; }
+    .n-gallery-item:nth-child(1), .n-gallery-item:nth-child(4) { grid-column: span 2; grid-row: span 1; }
+    .n-contact-grid { grid-template-columns: 1fr; }
+    .n-footer-grid { grid-template-columns: 1fr 1fr; }
+    .n-section { padding: 50px 20px; }
+    .n-admissions-content { padding: 44px 28px; }
+    .n-leader-left, .n-leader-right { padding: 36px 28px 36px; }
+    .n-leader-photo { width: 40%; }
+    .n-stats-bar .n-stat-item { padding: 16px 20px; min-width: 100px; }
   }
   @media (max-width: 480px) {
-    .lp-hero h1 { font-size: 27px; }
-    .lp-hero-stats { gap: 22px; }
-    .lp-hero-stat .num { font-size: 22px; }
-    .lp-gallery-grid { grid-template-columns: 1fr; }
-    .lp-gallery-item:nth-child(1), .lp-gallery-item:nth-child(4) { grid-column: span 1; }
+    .n-hero-content h1 { font-size: 28px; }
+    .n-gallery-grid { grid-template-columns: 1fr; }
+    .n-gallery-item:nth-child(1), .n-gallery-item:nth-child(4) { grid-column: span 1; }
+    .n-footer-grid { grid-template-columns: 1fr; }
+    .n-topbar-link:first-child { display: none; }
   }
-  .lp-sidebar::-webkit-scrollbar { width: 4px; }
-  .lp-sidebar::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
 `;
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-// Images used inside the hero slideshow (frame on the right of the hero).
-// Each entry pairs a professional campus-life photo with a short caption.
-const HERO_SLIDES = [
-  {
-    src: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1200&auto=format&fit=crop",
-    caption: "Our Campus, Agra",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop",
-    caption: "Bright, Modern Classrooms",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=1200&auto=format&fit=crop",
-    caption: "Hands-on Science Learning",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1200&auto=format&fit=crop",
-    caption: "Sports & All-Round Growth",
-  },
-];
-
-const SLIDES = [
-  {
-    src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
-    caption: "🏫 Shree H.S. Model High School — Agra",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop",
-    caption: "📚 Modern Classrooms for Quality Learning",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=1200&auto=format&fit=crop",
-    caption: "🔬 Science Laboratories — Hands-on Education",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1200&auto=format&fit=crop",
-    caption: "⚽ Sports Ground — All-Round Development",
-  },
-];
-
-const NOTICES = [
-  {
-    day: "20",
-    mon: "Jun",
-    title: "Class 10 & 12 Final Exam Schedule Released",
-    desc: "UP Board final examination timetable for Class 10 and 12 has been released. Students are advised to collect their admit cards from the school office by 25 June.",
-    tag: "lp-tag-exam",
-    tagLabel: "📝 Exam",
-  },
-  {
-    day: "15",
-    mon: "Jun",
-    title: "Independence Day Celebration – 15 August",
-    desc: "All students and staff are requested to be present on 15th August at 7:00 AM for flag hoisting ceremony. Cultural programs will follow. White uniform is compulsory.",
-    tag: "lp-tag-event",
-    tagLabel: "🎉 Event",
-  },
-  {
-    day: "10",
-    mon: "Jun",
-    title: "Parent-Teacher Meeting – Class 6 to 10",
-    desc: "A Parent-Teacher meeting for classes 6 to 10 will be held on 22nd June (Saturday) between 9 AM – 1 PM. Parents are requested to attend and collect their child's progress report.",
-    tag: "lp-tag-meeting",
-    tagLabel: "👨‍👩‍👧 PTM",
-  },
-  {
-    day: "05",
-    mon: "Jun",
-    title: "Half-Yearly Holiday Notice",
-    desc: "School will remain closed from 20 June to 30 June on account of summer vacation. Classes will resume on 1st July.",
-    tag: "lp-tag-holiday",
-    tagLabel: "🌿 Holiday",
-  },
-  {
-    day: "01",
-    mon: "Jun",
-    title: "Admission Open for 2025–26 Academic Session",
-    desc: "Admissions are now open for Class 1 to Class 11. Contact the school office between 9 AM to 2 PM on working days. Documents: Birth certificate, marksheet, Aadhar card.",
-    tag: "lp-tag-event",
-    tagLabel: "📌 Admissions",
-  },
-];
-
-const TEACHERS = [
-  {
-    init: "RC",
-    name: "Rang Bahadur Singh Chauhan",
-    subject: "Principal",
-    qual: "M.A., B.Ed · 25+ Years",
-    exp: "Administration",
-    bg: "linear-gradient(150deg,#1f2937,#14181f)",
-  },
-  {
-    init: "SK",
-    name: "Smt. Sunita Kumari",
-    subject: "Hindi",
-    qual: "M.A. Hindi, B.Ed · 18 Years",
-    exp: "Sr. Faculty",
-    bg: "linear-gradient(150deg,#b85c38,#8f3f23)",
-  },
-  {
-    init: "RS",
-    name: "Ramesh Kumar Sharma",
-    subject: "Mathematics",
-    qual: "M.Sc. Maths, B.Ed · 15 Years",
-    exp: "Sr. Faculty",
-    bg: "linear-gradient(150deg,#3f5a2a,#5a7a3e)",
-  },
-  {
-    init: "PV",
-    name: "Dr. Priya Verma",
-    subject: "Science / Biology",
-    qual: "M.Sc., Ph.D, B.Ed · 12 Years",
-    exp: "Sr. Faculty",
-    bg: "linear-gradient(150deg,#5b3a7a,#7d52a8)",
-  },
-  {
-    init: "AK",
-    name: "Anil Kumar Gupta",
-    subject: "Physics",
-    qual: "M.Sc. Physics, B.Ed · 14 Years",
-    exp: "Sr. Faculty",
-    bg: "linear-gradient(150deg,#1a5a6b,#2a7a8f)",
-  },
-  {
-    init: "NM",
-    name: "Nirmala Mishra",
-    subject: "English",
-    qual: "M.A. English, B.Ed · 16 Years",
-    exp: "Sr. Faculty",
-    bg: "linear-gradient(150deg,#8f2d52,#b8447a)",
-  },
-  {
-    init: "VS",
-    name: "Vijay Singh Yadav",
-    subject: "Social Science",
-    qual: "M.A., B.Ed · 11 Years",
-    exp: "Faculty",
-    bg: "linear-gradient(150deg,#8a5a06,#c47d0f)",
-  },
-  {
-    init: "KP",
-    name: "Kavita Pandey",
-    subject: "Sanskrit",
-    qual: "M.A. Sanskrit, B.Ed · 9 Years",
-    exp: "Faculty",
-    bg: "linear-gradient(150deg,#2d3f8f,#4a5fc4)",
-  },
-];
-
-const SUBJECTS = [
-  "Hindi",
-  "English",
-  "Mathematics",
-  "Science",
-  "Social Science",
-  "Sanskrit",
-  "Computer Science",
-  "Physics",
-  "Chemistry",
-  "Biology",
-  "History",
-  "Geography",
-  "Civics",
-  "Economics",
-  "Home Science",
-];
-
-const GALLERY = [
-  {
-    src: "https://images.unsplash.com/photo-1591474200742-8e512e6f98f8?q=80&w=800&auto=format&fit=crop",
-    caption: "📍 Main School Building",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=600&auto=format&fit=crop",
-    caption: "🏫 Modern Classrooms",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1603354350317-6f7aaa5911c5?q=80&w=600&auto=format&fit=crop",
-    caption: "📚 School Library",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=800&auto=format&fit=crop",
-    caption: "🔬 Science Laboratory",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=600&auto=format&fit=crop",
-    caption: "⚽ Sports Ground",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=600&auto=format&fit=crop",
-    caption: "🎭 Annual Cultural Program",
-  },
-];
-
-const NOTICE_TAGS = {
-  exam: { label: "📝 Exam", className: "lp-tag-exam" },
-  event: { label: "🎉 Event", className: "lp-tag-event" },
-  meeting: { label: "👨‍👩‍👧 PTM", className: "lp-tag-meeting" },
-  holiday: { label: "🌿 Holiday", className: "lp-tag-holiday" },
-};
-
+// ─── Default Content (must match WebAdminDashboard DEFAULT_CONTENT) ───────────
 const DEFAULT_CONTENT = {
-  heroTitle: "Shree H.S. Model\nHigh School",
-  heroSubtitle:
-    "Nurturing minds and building character since 2001. A UP Board-affiliated school in Agra committed to academic excellence, moral values, and all-round development.",
-  heroImageUrl:
-    "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
-  heroSlides: [...HERO_SLIDES],
+  heroTitle: "Excellence in Education",
+  heroSubtitle: "Shaping the leaders, thinkers, and innovators of tomorrow — a UP Board affiliated school in Lucknow committed to academic excellence, moral values, and all-round development.",
+  heroImageUrl: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1920&auto=format&fit=crop",
   ctaText: "Enquire for Admission →",
   ctaSecondary: "Know Our School",
   heroBadge: "Admissions Open 2025–26",
   statsStudents: 1200,
   statsFaculty: 95,
+  statsLabs: 12,
   statsPassRate: 98,
   statsYears: 23,
-  slides: [...SLIDES],
-  gallery: [...GALLERY],
-  notices: [...NOTICES],
-  whyCards: [
-    {
-      icon: "🏆",
-      title: "Academic Excellence",
-      desc: "Consistently 98%+ result in UP Board exams with top district rankers every year.",
-    },
-    {
-      icon: "🕉️",
-      title: "Moral Values",
-      desc: "Character building through daily prayers, Sanskrit shloka recitation, and Yoga sessions.",
-    },
-    {
-      icon: "🔬",
-      title: "Modern Labs",
-      desc: "Physics, Chemistry, Biology & Computer labs with modern equipment for hands-on learning.",
-    },
-    {
-      icon: "⚽",
-      title: "Sports & Arts",
-      desc: "Annual sports meet, cultural programs, drawing & elocution competitions — talent nurtured.",
-    },
+  slides: [
+    { src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1920&auto=format&fit=crop", caption: "Shree H.S. Model Inter College — Lucknow" },
+    { src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1920&auto=format&fit=crop", caption: "Modern Classrooms for Quality Learning" },
+    { src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=1920&auto=format&fit=crop", caption: "Science Laboratories — Hands-on Education" },
+    { src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1920&auto=format&fit=crop", caption: "Sports Ground — All-Round Development" },
   ],
-  principalQuoteShort:
-    "Education is not merely about marks — it is about kindling the flame of curiosity, discipline, and humanity in every child. At Shree H.S. Model High School, we believe every student carries infinite potential.",
-  principalName: "Principal Rang Bahadur Singh Chauhan",
-  principalFull:
-    "It is with immense pride and humility that I address the Shree H.S. Model High School family. Since our founding in 2001, we have strived to create an environment where every child feels valued, challenged, and inspired. Our school is not merely a place of academic learning — it is a second home where students develop not only their intellect, but their character, resilience, and compassion.\n\nWe believe in the holistic development of each student — through rigorous academics, creative arts, physical education, and above all, the inculcation of strong moral values. Together, we will shape the leaders and citizens of tomorrow.",
-  managerName: "Dr. P.S. Chauhan",
-  managerFull:
-    "As the Manager of Shree H.S. Model High School, my commitment has always been to provide an institution that is accessible, affordable, and of the highest quality for the students of Agra. We have invested in modern classrooms, qualified teachers, and an environment that promotes curiosity and growth. Our students are our greatest achievement.",
-  contactAddress: "Shree H.S. Model High School, Agra, Uttar Pradesh – 282001",
-  contactPhone: "+91 562 234-5678",
-  contactPhoneAdmission: "+91 562 234-5679",
-  contactEmail: "info@shreehsmodelhs.edu.in",
-  contactHours: "Mon – Sat: 8:00 AM – 2:30 PM",
+  gallery: [
+    { src: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=900&auto=format&fit=crop", caption: "School Campus — Lucknow" },
+    { src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=900&auto=format&fit=crop", caption: "Modern Classrooms" },
+    { src: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?q=80&w=900&auto=format&fit=crop", caption: "Science Laboratory" },
+    { src: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=900&auto=format&fit=crop", caption: "Sports Ground" },
+    { src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=900&auto=format&fit=crop", caption: "Annual Day Celebrations" },
+  ],
+  principalQuoteShort: "Education is the most powerful weapon you can use to change the world. At Shree H.S. Model Inter College, every student is empowered to unlock their true potential.",
+  principalName: "Rang Bahadur Singh Chauhan",
+  principalFull: "It is with immense pride and humility that I address the Shree H.S. Model Inter College family. Since our founding, we have strived to create an environment where every child feels valued, challenged, and inspired. Our school is not merely a place of academic learning — it is a second home where students develop intellect, character, resilience, and compassion.",
+  managerName: "Smt. Pushpa Devi Chauhan",
+  managerFull: "As the Director of Shree H.S. Model Inter College, my commitment has always been to provide an institution that is accessible, affordable, and of the highest quality. We have invested in modern classrooms, qualified teachers, and an environment that promotes curiosity and growth. Our students are our greatest achievement.",
+  contactAddress: "Shree H.S. Model Inter College, Lucknow, Uttar Pradesh",
+  contactPhone: "+91 98765 43210",
+  contactPhoneAdmission: "+91 98765 43211",
+  contactEmail: "info@shreehsmodel.edu.in",
+  contactHours: "Mon – Sat: 8:00 AM – 3:00 PM",
+  notices: [
+    { day: "20", mon: "Jun", title: "Class 10 & 12 Final Exam Schedule Released", desc: "UP Board final examination timetable for Class 10 and 12 has been released. Students must collect admit cards by 25 June.", tag: "exam" },
+    { day: "15", mon: "Jun", title: "Independence Day Celebration – 15 August", desc: "All students and staff are requested to be present at 7:00 AM for flag hoisting. White uniform compulsory.", tag: "event" },
+    { day: "10", mon: "Jun", title: "Parent-Teacher Meeting – Class 6 to 10", desc: "PTM for classes 6–10 will be held on 22nd June (Saturday) between 9 AM – 1 PM. Collect your child's progress report.", tag: "meeting" },
+    { day: "05", mon: "Jun", title: "Half-Yearly Holiday Notice", desc: "School will remain closed from 20 June to 30 June (summer vacation). Classes resume on 1st July.", tag: "holiday" },
+  ],
+  whyCards: [
+    { icon: "🎓", title: "Academic Excellence", desc: "Consistent top results in UP Board with 98%+ pass rate every year for over two decades." },
+    { icon: "🔬", title: "Modern Laboratories", desc: "State-of-the-art Physics, Chemistry, Biology, and Computer Science labs for hands-on learning." },
+    { icon: "🏆", title: "Sports & Activities", desc: "Cricket, volleyball, athletics, yoga, art, music and NCC — holistic development for every student." },
+    { icon: "📚", title: "Smart Classrooms", desc: "Digital smart boards, e-learning resources, and experienced faculty for interactive education." },
+  ],
 };
 
-// ─── Hero Visual (crossfading slideshow + mouse-tilt parallax + blended edges) ─
-// Replaces the old single-static-image hero visual. Cycles through several
-// professional campus photos with a smooth crossfade + slow Ken Burns zoom,
-// so the hero feels alive without resorting to a jarring hard-cut carousel.
-function HeroVisual({ slides = HERO_SLIDES, fallbackImageUrl }) {
-  const stageRef = useRef(null);
-  const rafRef = useRef(null);
-  const target = useRef({ x: 0, y: 0 });
-  const current = useRef({ x: 0, y: 0 });
-  const [active, setActive] = useState(0);
+const CAMPUS_CARDS = [
+  { img: "https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=900&auto=format&fit=crop", title: "Primary School Campus", desc: "Classes I – V", color: "var(--burgundy)" },
+  { img: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=900&auto=format&fit=crop", title: "Secondary School Campus", desc: "Classes VI – X", color: "var(--orange)" },
+  { img: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=900&auto=format&fit=crop", title: "Senior Secondary Campus", desc: "Classes XI – XII (Science, Commerce, Arts)", color: "var(--deep-blue)" },
+];
 
-  // If a single custom heroImageUrl was supplied (e.g. via admin settings)
-  // and no slide list is present, fall back to a one-slide "show".
-  const effectiveSlides =
-    slides && slides.length > 0
-      ? slides
-      : [{ src: fallbackImageUrl, caption: "Our Campus, Agra" }];
+const TAG_STYLES = { exam: "n-tag-exam", event: "n-tag-event", holiday: "n-tag-holiday", meeting: "n-tag-meeting" };
+const TAG_LABELS = { exam: "Exam", event: "Event", holiday: "Holiday", meeting: "PTM" };
+const ICON_BG = ["#fff0f2", "#f0f4ff", "#fff8e8", "#f0fff4", "#f5f0ff", "#fff0f8"];
 
-  // Auto-advance the slideshow.
-  useEffect(() => {
-    if (effectiveSlides.length <= 1) return;
-    const id = setInterval(() => {
-      setActive((a) => (a + 1) % effectiveSlides.length);
-    }, 4500);
-    return () => clearInterval(id);
-  }, [effectiveSlides.length]);
-
-  // Mouse-tilt parallax on the whole stage (frame + chips + rings).
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-
-    const animate = () => {
-      current.current.x += (target.current.x - current.current.x) * 0.08;
-      current.current.y += (target.current.y - current.current.y) * 0.08;
-      const { x, y } = current.current;
-      if (stage) {
-        stage.style.transform = `rotateX(${y}deg) rotateY(${x}deg)`;
-      }
-      rafRef.current = requestAnimationFrame(animate);
-    };
-    rafRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, []);
-
-  const handleMouseMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width - 0.5;
-    const py = (e.clientY - rect.top) / rect.height - 0.5;
-    target.current = { x: px * 16, y: -py * 14 };
-  };
-
-  const handleMouseLeave = () => {
-    target.current = { x: 0, y: 0 };
-  };
-
-  return (
-    <div
-      className="lp-hero-visual"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div className="lp-hero-glow" />
-      <div ref={stageRef} className="lp-hero-visual-stage">
-        <div className="lp-hero-ring lp-ring-1" />
-        <div className="lp-hero-ring lp-ring-2" />
-
-        {[
-          { top: "8%", left: "6%", size: 6 },
-          { top: "20%", left: "84%", size: 4 },
-          { top: "70%", left: "10%", size: 5 },
-          { top: "82%", left: "78%", size: 6 },
-          { top: "45%", left: "92%", size: 4 },
-        ].map((p, i) => (
-          <span
-            key={i}
-            className="lp-hero-particle"
-            style={{
-              top: p.top,
-              left: p.left,
-              width: p.size,
-              height: p.size,
-              animationDelay: `${i * 0.6}s`,
-            }}
-          />
-        ))}
-
-        <div className="lp-hero-frame">
-          {effectiveSlides.map((s, i) => (
-            <div
-              key={i}
-              className={`lp-hero-slide${i === active ? " is-active" : ""}`}
-            >
-              {/* key forces the Ken Burns animation to restart each time this slide becomes active */}
-              <img
-                key={`${i}-${i === active ? "on" : "off"}`}
-                src={s.src}
-                alt={s.caption || "Shree H.S. Model High School campus"}
-                loading={i === 0 ? "eager" : "lazy"}
-              />
-            </div>
-          ))}
-
-          <div className="lp-hero-frame-shade" />
-          <div className="lp-hero-frame-vignette" />
-
-          <div className="lp-hero-frame-caption">
-            <span className="txt">
-              🏫 {effectiveSlides[active]?.caption || "Our Campus, Agra"}
-            </span>
-            {effectiveSlides.length > 1 && (
-              <div className="lp-hero-frame-dots">
-                {effectiveSlides.map((_, i) => (
-                  <button
-                    key={i}
-                    className={`lp-hero-frame-dot${i === active ? " is-active" : ""}`}
-                    onClick={() => setActive(i)}
-                    aria-label={`Show photo ${i + 1}`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="lp-hero-chip lp-chip-1">
-          <div className="ic">🎓</div>
-          <div className="tx">
-            <div className="v">23+ Years</div>
-            <div className="l">of Legacy</div>
-          </div>
-        </div>
-        <div className="lp-hero-chip lp-chip-2">
-          <div className="ic">🏆</div>
-          <div className="tx">
-            <div className="v">98%</div>
-            <div className="l">Board Pass Rate</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Image Slider ─────────────────────────────────────────────────────────────
-function ImageSlider({ slides = SLIDES }) {
-  const [current, setCurrent] = useState(0);
-  const timerRef = useRef(null);
-
-  const go = (idx) => {
-    setCurrent((idx + slides.length) % slides.length);
-  };
-
-  useEffect(() => {
-    timerRef.current = setInterval(
-      () => setCurrent((c) => (c + 1) % slides.length),
-      4000,
-    );
-    return () => clearInterval(timerRef.current);
-  }, [slides.length]);
-
-  return (
-    <div className="lp-slider">
-      <div
-        className="lp-slider-track"
-        style={{ transform: `translateX(-${current * 100}%)` }}
-      >
-        {slides.map((s, i) => (
-          <div key={i} className="lp-slide">
-            <img
-              src={s.src}
-              alt={s.caption}
-              loading={i === 0 ? "eager" : "lazy"}
-            />
-            <div className="lp-slide-caption">{s.caption}</div>
-          </div>
-        ))}
-      </div>
-      <button
-        className="lp-slider-btn prev"
-        onClick={() => go(current - 1)}
-        aria-label="Previous"
-      >
-        &#8592;
-      </button>
-      <button
-        className="lp-slider-btn next"
-        onClick={() => go(current + 1)}
-        aria-label="Next"
-      >
-        &#8594;
-      </button>
-      <div className="lp-slider-dots">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            className={`lp-slider-dot${i === current ? " active" : ""}`}
-            onClick={() => go(i)}
-            aria-label={`Slide ${i + 1}`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 export const LandingPage = () => {
+  const [c, setC] = useState(DEFAULT_CONTENT); // c = content
+  const [slideIdx, setSlideIdx] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [formSent, setFormSent] = useState(false);
   const { userRole } = useAuth();
-  const [activeSection, setActiveSection] = useState("home");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [formStatus, setFormStatus] = useState("");
-  const [content, setContent] = useState(DEFAULT_CONTENT);
+  const slideTimer = useRef(null);
 
-  const loadContentFromStorage = useCallback(() => {
-    try {
-      const saved = localStorage.getItem("school_erp_landing_content_v2");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setContent((c) => {
-          // Only update if actually changed (prevents unnecessary re-renders)
-          if (
-            JSON.stringify(c) ===
-            JSON.stringify({ ...DEFAULT_CONTENT, ...parsed })
-          )
-            return c;
-          return { ...DEFAULT_CONTENT, ...parsed };
-        });
-      }
-    } catch (error) {
-      console.error("Landing page content load failed:", error);
-    }
+  // ── Inject CSS
+  useEffect(() => {
+    const el = document.createElement("style");
+    el.textContent = STYLES;
+    document.head.appendChild(el);
+    return () => document.head.removeChild(el);
   }, []);
 
+  // ── Load content from localStorage (WebAdmin saves here)
   useEffect(() => {
-    loadContentFromStorage();
-
-    // Listen for storage changes from other tabs/windows
-    const handleStorage = (e) => {
-      if (e.key === "school_erp_landing_content_v2" && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue);
-          setContent({ ...DEFAULT_CONTENT, ...parsed });
-        } catch {}
-      }
+    const load = () => {
+      try {
+        const saved = localStorage.getItem("school_erp_landing_content_v2");
+        if (saved) setC({ ...DEFAULT_CONTENT, ...JSON.parse(saved) });
+      } catch { }
     };
+    load();
+    // Re-load when storage changes (e.g., WebAdmin saves in another tab)
+    window.addEventListener("storage", load);
+    return () => window.removeEventListener("storage", load);
+  }, []);
 
-    // When user returns to this tab, re-read storage (catches same-tab SPA nav)
-    const handleFocus = () => {
-      loadContentFromStorage();
-    };
+  // ── Hero auto-slide
+  useEffect(() => {
+    const slides = c.slides || [];
+    if (slides.length < 2) return;
+    slideTimer.current = setInterval(() => {
+      setSlideIdx((i) => (i + 1) % slides.length);
+    }, 5000);
+    return () => clearInterval(slideTimer.current);
+  }, [c.slides]);
 
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("focus", handleFocus);
+  // Reset slide index if slides change
+  useEffect(() => { setSlideIdx(0); }, [c.slides?.length]);
 
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [loadContentFromStorage]);
+  // ── Navbar scroll
+  useEffect(() => {
+    const h = () => setScrolled(window.scrollY > 60);
+    window.addEventListener("scroll", h);
+    return () => window.removeEventListener("scroll", h);
+  }, []);
 
-  const showSection = (id) => {
-    setActiveSection(id);
-    setSidebarOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const goToSlide = useCallback((i) => {
+    setSlideIdx(i);
+    clearInterval(slideTimer.current);
+    const slides = c.slides || [];
+    if (slides.length > 1) {
+      slideTimer.current = setInterval(() => {
+        setSlideIdx((s) => (s + 1) % slides.length);
+      }, 5000);
+    }
+  }, [c.slides]);
+
+  const scrollTo = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    setMenuOpen(false);
   };
 
-  const getDashboardLink = () => {
+  const getDashboardPath = () => {
     if (userRole === "admin") return "/admin";
     if (userRole === "webadmin") return "/webadmin";
     if (userRole === "teacher") return "/teacher";
@@ -1171,1016 +533,446 @@ export const LandingPage = () => {
     return "/login";
   };
 
-  const handleEnquiry = (e) => {
+  const handleFormSubmit = (e) => {
     e.preventDefault();
-    setFormStatus("show");
+    setFormSent(true);
+    setTimeout(() => setFormSent(false), 4000);
     e.target.reset();
-    setTimeout(() => setFormStatus(""), 5000);
   };
 
-  const NAV_ITEMS = [
-    { id: "home", label: "Home" },
-    { id: "about", label: "About" },
-    { id: "curriculum", label: "Curriculum" },
-    { id: "teachers", label: "Faculty" },
-    { id: "gallery", label: "Gallery" },
-    { id: "notices", label: "Notices" },
-  ];
+  const slides = c.slides || [];
+  const gallery = c.gallery || [];
+  const notices = c.notices || [];
+  const whyCards = c.whyCards || [];
 
-  const SIDEBAR_ITEMS = [
-    { id: "home", icon: "🏫", label: "Home" },
-    { id: "about", icon: "📖", label: "About School" },
-    { id: "curriculum", icon: "📚", label: "Curriculum" },
-    { id: "teachers", icon: "👨‍🏫", label: "Our Faculty" },
-    { id: "gallery", icon: "🖼️", label: "School Gallery" },
-    { id: "notices", icon: "📋", label: "Notice Board" },
-    { id: "contact", icon: "📞", label: "Contact Us" },
-  ];
+  const principalInitials = (c.principalName || "RC")
+    .split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
   return (
-    <>
-      <style>{STYLES}</style>
-
-      {/* Tricolor bar */}
-      <div className="lp-tricolor" />
-
-      {/* Topbar */}
-      <header className="lp-topbar">
-        <button
-          className={`lp-hamburger${sidebarOpen ? " open" : ""}`}
-          aria-label="Open menu"
-          onClick={() => setSidebarOpen((o) => !o)}
-        >
-          <span />
-          <span />
-          <span />
+    <div>
+      {/* ── Top Info Bar ── */}
+      <div className="n-topbar">
+        <div className="n-topbar-links">
+          <span className="n-topbar-link">CBSE / UP Board Affiliated</span>
+          <span className="n-topbar-link active">Shree H.S. Model Inter College</span>
+        </div>
+        <button className="n-topbar-search" onClick={() => scrollTo("n-contact")}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Contact Us
         </button>
+      </div>
 
-        <button
-          className="lp-logo"
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: 0,
-          }}
-          onClick={() => showSection("home")}
-        >
-          <div className="lp-logo-emblem">श्री</div>
-          <div className="lp-logo-name">
-            <div className="t1">Shree H.S. Model High School</div>
-            <div className="t2">Agra, Uttar Pradesh · Est. 2001</div>
+      {/* ── Navbar ── */}
+      <nav className={`n-navbar${scrolled ? " scrolled" : ""}`}>
+        <a href="#" className="n-navbar-logo">
+          <div className="n-logo-emblem">
+            <img src="https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?q=80&w=100&auto=format&fit=crop" alt="Logo"
+              onError={e => { e.target.style.display="none"; e.target.parentNode.textContent="SH"; }} />
           </div>
-        </button>
-
-        <nav className="lp-topnav">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              className={activeSection === item.id ? "active" : ""}
-              onClick={() => showSection(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-          <button
-            className="lp-admit-btn"
-            onClick={() => showSection("contact")}
-            style={{
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              borderRadius: "8px",
-            }}
-          >
-            Contact Us
-          </button>
-          <Link
-            to={getDashboardLink()}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "9px 18px",
-              borderRadius: 8,
-              marginLeft: 6,
-              background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 13,
-              textDecoration: "none",
-              transition: "opacity 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-          >
-            🔐 {userRole ? "Dashboard" : "Login"}
-          </Link>
-        </nav>
-      </header>
-
-      {/* Overlay */}
-      <div
-        className={`lp-overlay${sidebarOpen ? " show" : ""}`}
-        onClick={() => setSidebarOpen(false)}
-      />
-
-      {/* Sidebar */}
-      <nav className={`lp-sidebar${sidebarOpen ? " open" : ""}`}>
-        <div className="sb-section">
-          <div className="sb-label">Main Menu</div>
-          {SIDEBAR_ITEMS.slice(0, 4).map((item) => (
-            <button
-              key={item.id}
-              className={`sb-link${activeSection === item.id ? " active" : ""}`}
-              onClick={() => showSection(item.id)}
-            >
-              <div className="sb-icon">{item.icon}</div> {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="sb-divider" />
-        <div className="sb-section">
-          <div className="sb-label">Campus Life</div>
-          {SIDEBAR_ITEMS.slice(4).map((item) => (
-            <button
-              key={item.id}
-              className={`sb-link${activeSection === item.id ? " active" : ""}`}
-              onClick={() => showSection(item.id)}
-            >
-              <div className="sb-icon">{item.icon}</div> {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="sb-divider" />
-        <div className="sb-section">
-          <div className="sb-label">Quick Info</div>
-          <div
-            style={{
-              padding: "14px 12px",
-              background: "var(--marigold-light)",
-              borderRadius: 12,
-              fontSize: 13,
-              color: "var(--clay-deep)",
-            }}
-          >
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>
-              📅 Academic Year 2025–26
-            </div>
-            <div style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
-              Session: April – March
-              <br />
-              Board: UP Madhyamik
-              <br />
-              Medium: Hindi & English
-            </div>
+          <div className="n-logo-text">
+            <span className="t1">Shree H.S. Model Inter College</span>
+            <span className="t2">Lucknow, Uttar Pradesh · Est. 1998</span>
           </div>
-        </div>
-        <div
-          style={{
-            padding: 16,
-            marginTop: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-          }}
-        >
-          <button
-            className="lp-btn-primary"
-            style={{ width: "100%", justifyContent: "center" }}
-            onClick={() => showSection("contact")}
-          >
-            📩 Admission Enquiry
-          </button>
-          <Link
-            to={getDashboardLink()}
-            onClick={() => setSidebarOpen(false)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "12px",
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 13,
-              textDecoration: "none",
-            }}
-          >
-            🔐 {userRole ? "Go to Dashboard" : "Staff / Parent Login"}
+        </a>
+        <div className="n-navlinks">
+          <button className="n-navlink" onClick={() => scrollTo("n-about")}>About Us</button>
+          <button className="n-navlink" onClick={() => scrollTo("n-features")}>Academics</button>
+          <button className="n-navlink" onClick={() => scrollTo("n-gallery")}>Gallery</button>
+          <button className="n-navlink" onClick={() => scrollTo("n-notices")}>Notices</button>
+          <button className="n-navlink" onClick={() => scrollTo("n-contact")}>Contact</button>
+          <Link to={getDashboardPath()} className="n-inquire-btn">
+            {userRole ? "My Dashboard ↗" : "Portal Login ↗"}
           </Link>
+          <button className="n-menu-btn" onClick={() => setMenuOpen(true)}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
         </div>
       </nav>
 
-      {/* Main */}
-      <main className="lp-main">
-        {/* ── HOME ── */}
-        <section
-          className={`lp-section${activeSection === "home" ? " active" : ""}`}
-        >
-          {/* Hero */}
-          <div className="lp-hero">
-            <div className="lp-hero-motif" />
-            <div className="lp-hero-inner">
-              <div className="lp-hero-content">
-                <div className="lp-hero-badge">
-                  <span className="dot" />
-                  {content.heroBadge}
-                </div>
-                <h1>
-                  {content.heroTitle.split("\n").map((line, idx) => (
-                    <React.Fragment key={idx}>
-                      {idx > 0 && <br />}
-                      {idx === 1 ? <em>{line}</em> : line}
-                    </React.Fragment>
-                  ))}
-                </h1>
-                <p>{content.heroSubtitle}</p>
-                <div className="lp-hero-btns">
-                  <button
-                    className="lp-btn-primary"
-                    onClick={() => showSection("contact")}
-                  >
-                    {content.ctaText}
-                  </button>
-                  <button
-                    className="lp-btn-outline"
-                    onClick={() => showSection("about")}
-                  >
-                    {content.ctaSecondary}
-                  </button>
-                </div>
-                <div className="lp-hero-stats">
-                  <div className="lp-hero-stat">
-                    <div className="num">{content.statsStudents}+</div>
-                    <div className="lbl">Students Enrolled</div>
-                  </div>
-                  <div className="lp-hero-stat">
-                    <div className="num">{content.statsFaculty}+</div>
-                    <div className="lbl">Expert Faculty</div>
-                  </div>
-                  <div className="lp-hero-stat">
-                    <div className="num">{content.statsPassRate}%</div>
-                    <div className="lbl">Board Pass Rate</div>
-                  </div>
-                  <div className="lp-hero-stat">
-                    <div className="num">{content.statsYears}+</div>
-                    <div className="lbl">Years of Legacy</div>
-                  </div>
-                </div>
-              </div>
+      {/* Mobile Menu */}
+      <div className={`n-mobile-menu${menuOpen ? " open" : ""}`}>
+        <div className="n-mobile-overlay" onClick={() => setMenuOpen(false)} />
+        <div className="n-mobile-menu-panel">
+          <button className="n-mobile-menu-close" onClick={() => setMenuOpen(false)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Close
+          </button>
+          {["n-about","n-features","n-gallery","n-notices","n-contact"].map((id, i) => (
+            <button key={id} className="n-mobile-link" onClick={() => scrollTo(id)}>
+              {["About Us","Academics","Gallery","Notices","Contact"][i]}
+            </button>
+          ))}
+          <Link to={getDashboardPath()} className="n-mobile-link" onClick={() => setMenuOpen(false)}>
+            {userRole ? "My Dashboard" : "Portal Login"}
+          </Link>
+        </div>
+      </div>
 
-              <HeroVisual
-                slides={content.heroSlides}
-                fallbackImageUrl={content.heroImageUrl}
-              />
+      {/* ── Hero Slider ── */}
+      <div style={{ marginTop: "124px" }}>
+        <div className="n-hero-wrapper">
+          {slides.length > 0 ? slides.map((slide, i) => (
+            <div key={i} className={`n-hero-slide${slideIdx === i ? " active" : ""}`}>
+              <img src={slide.src} alt={slide.caption || `Slide ${i+1}`} />
             </div>
+          )) : (
+            <div className="n-hero-slide active">
+              <img src={DEFAULT_CONTENT.slides[0].src} alt="Hero" />
+            </div>
+          )}
+          <div className="n-hero-overlay" />
+          <div className="n-hero-content">
+            <h1>{c.heroTitle || DEFAULT_CONTENT.heroTitle}</h1>
+            <p>{c.heroSubtitle || DEFAULT_CONTENT.heroSubtitle}</p>
           </div>
-
-          {/* Image Slider */}
-          <ImageSlider slides={content.slides} />
-
-          {/* Quick links bar */}
-          <div className="lp-quickbar">
-            <div className="lp-quickbar-inner">
-              {[
-                {
-                  label: "📋 Latest Notices",
-                  sec: "notices",
-                  bg: "var(--marigold-light)",
-                  color: "#8a5a06",
-                },
-                {
-                  label: "📚 Our Curriculum",
-                  sec: "curriculum",
-                  bg: "#e3e9fb",
-                  color: "#2d3f8f",
-                },
-                {
-                  label: "🖼️ School Gallery",
-                  sec: "gallery",
-                  bg: "#e2ecd9",
-                  color: "#3f5a2a",
-                },
-                {
-                  label: "👨‍🏫 Our Faculty",
-                  sec: "teachers",
-                  bg: "#fbe3dc",
-                  color: "#8f3f23",
-                },
-                {
-                  label: "📞 Contact Us",
-                  sec: "contact",
-                  bg: "var(--indigo-deep)",
-                  color: "var(--marigold)",
-                },
-              ].map((q) => (
-                <button
-                  key={q.sec}
-                  className="lp-qlink"
-                  style={{ background: q.bg, color: q.color }}
-                  onClick={() => showSection(q.sec)}
-                >
-                  {q.label}
-                </button>
+          {slides.length > 1 && (
+            <div className="n-hero-dots">
+              {slides.map((_, i) => (
+                <button key={i} className={`n-hero-dot${slideIdx === i ? " active" : ""}`} onClick={() => goToSlide(i)} />
               ))}
+              <span className="n-hero-dot-num">{slideIdx + 1}</span>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky portal side tab */}
+      <Link
+        to={getDashboardPath()}
+        className="n-portal-side-btn"
+        onMouseEnter={e => { e.currentTarget.style.right = "0px"; }}
+        onMouseLeave={e => { e.currentTarget.style.right = "-62px"; }}
+      >
+        <span>⌃</span> Portal Login
+      </Link>
+
+      {/* ── Stats Bar ── */}
+      <div className="n-stats-bar">
+        <div className="n-stat-item">
+          <div className="n-stat-num">{c.statsStudents || 1200}+</div>
+          <div className="n-stat-label">Students</div>
+        </div>
+        <div className="n-stat-item">
+          <div className="n-stat-num">{c.statsFaculty || 95}+</div>
+          <div className="n-stat-label">Faculty</div>
+        </div>
+        <div className="n-stat-item">
+          <div className="n-stat-num">{c.statsPassRate || 98}%</div>
+          <div className="n-stat-label">Pass Rate</div>
+        </div>
+        <div className="n-stat-item">
+          <div className="n-stat-num">{c.statsLabs || 12}</div>
+          <div className="n-stat-label">Modern Labs</div>
+        </div>
+        <div className="n-stat-item">
+          <div className="n-stat-num">{c.statsYears || 23}+</div>
+          <div className="n-stat-label">Years of Excellence</div>
+        </div>
+      </div>
+
+      {/* ── Leader / Vision Split Section ── */}
+      <div id="n-about" className="n-leaders">
+        <div className="n-leader-left">
+          <div className="n-leader-bg-pattern" />
+          <div className="n-leader-quote-mark">"</div>
+          <div className="n-leader-heading">A Vision of Excellence in Education</div>
+          <div className="n-leader-quote">{c.principalFull || DEFAULT_CONTENT.principalFull}</div>
+          <div className="n-leader-divider" />
+          <div className="n-leader-name">{c.principalName || DEFAULT_CONTENT.principalName}</div>
+          <div className="n-leader-title">Principal &amp; Founder</div>
+          <img className="n-leader-photo"
+            src="https://images.unsplash.com/photo-1607990283143-e81e7a2c9349?q=80&w=600&auto=format&fit=crop"
+            alt="Principal" onError={e => { e.target.style.display="none"; }} />
+        </div>
+        <div className="n-leader-right">
+          <div className="n-leader-bg-pattern" />
+          <div className="n-leader-quote-mark">"</div>
+          <div style={{ height: "60px" }} />
+          <div className="n-leader-quote">{c.managerFull || DEFAULT_CONTENT.managerFull}</div>
+          <div className="n-leader-divider" />
+          <div className="n-leader-name">{c.managerName || DEFAULT_CONTENT.managerName}</div>
+          <div className="n-leader-title">Director &amp; Manager</div>
+          <img className="n-leader-photo"
+            src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=600&auto=format&fit=crop"
+            alt="Director" onError={e => { e.target.style.display="none"; }} />
+        </div>
+      </div>
+
+      {/* ── Campuses ── */}
+      <div className="n-section alt-bg">
+        <div className="n-section-inner">
+          <div className="n-section-header">
+            <h2 className="n-section-title">Our Campus</h2>
+            <p className="n-section-sub">Three levels of excellence — primary, secondary, and senior secondary education under one roof.</p>
           </div>
-
-          {/* Why Us */}
-          <div className="lp-wrap">
-            <div className="lp-sec-header">
-              <div className="lp-eyebrow">Why Choose Us</div>
-              <div className="lp-sec-title">Excellence in Every Dimension</div>
-              <div className="lp-sec-sub">
-                From academics to sports, arts to values — we build complete
-                human beings.
-              </div>
-            </div>
-            <div className="lp-why-grid">
-              {(content.whyCards || []).map((c) => (
-                <div key={c.title} className="lp-why-card">
-                  <div className="lp-why-icon">{c.icon}</div>
-                  <div className="lp-why-title">{c.title}</div>
-                  <div className="lp-why-desc">{c.desc}</div>
+          <div className="n-campuses-grid">
+            {CAMPUS_CARDS.map((card, i) => (
+              <div className="n-campus-card" key={i}>
+                <img className="n-campus-card-img" src={card.img} alt={card.title} />
+                <div className="n-campus-card-overlay"
+                  style={{ background: `linear-gradient(0deg, ${card.color}ee 0%, ${card.color}88 40%, transparent 100%)` }}>
+                  <h3>{card.title}</h3>
+                  <p>{card.desc}</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
+        </div>
+      </div>
 
-          {/* Principal quote strip */}
-          <div className="lp-principal-strip">
-            <div className="lp-principal-strip-inner">
-              <div className="lp-eyebrow">From the Principal's Desk</div>
-              <blockquote className="lp-pquote">
-                "Education is not merely about marks — it is about kindling the
-                flame of curiosity, discipline, and humanity in every child. At
-                Shree H.S. Model High School, we believe every student carries
-                infinite potential."
-              </blockquote>
-              <div
-                style={{
-                  fontWeight: 700,
-                  color: "var(--indigo-deep)",
-                  fontSize: 16,
-                }}
-              >
-                Principal Rang Bahadur Singh Chauhan
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "var(--ink-faint)",
-                  marginTop: 4,
-                }}
-              >
-                Shree H.S. Model High School, Agra
-              </div>
-              <button
-                className="lp-btn-primary"
-                style={{ marginTop: 22, display: "inline-flex" }}
-                onClick={() => showSection("about")}
-              >
-                Read Full Message →
-              </button>
-            </div>
+      {/* ── Admissions CTA ── */}
+      <div className="n-admissions">
+        <div className="n-admissions-content">
+          <h2>Admissions</h2>
+          <p>{c.ctaText || DEFAULT_CONTENT.ctaText}</p>
+          <button className="n-admissions-btn" onClick={() => scrollTo("n-contact")}>
+            Inquire Now ↗
+          </button>
+        </div>
+        <img className="n-admissions-img"
+          src="https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=900&auto=format&fit=crop"
+          alt="Students" />
+      </div>
+
+      {/* ── Notices ── */}
+      <div id="n-notices" className="n-section">
+        <div className="n-section-inner">
+          <div className="n-section-header">
+            <h2 className="n-section-title">Notices &amp; Announcements</h2>
+            <p className="n-section-sub">Stay informed with the latest updates, events, and important notices from the school.</p>
           </div>
-
-          {/* ERP Portal CTA */}
-          <div
-            style={{
-              background: "var(--indigo-deep)",
-              padding: "48px 24px",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ maxWidth: 600, margin: "0 auto" }}>
-              <div
-                style={{
-                  fontFamily: "'Fraunces', serif",
-                  fontSize: "clamp(22px, 3vw, 32px)",
-                  fontWeight: 700,
-                  color: "#fff",
-                  marginBottom: 12,
-                }}
-              >
-                School ERP Portal
-              </div>
-              <p
-                style={{
-                  fontSize: 15,
-                  color: "#c3c9d3",
-                  marginBottom: 28,
-                  lineHeight: 1.7,
-                }}
-              >
-                Teachers, parents and admins — access your dashboard for grades,
-                attendance, fees and announcements.
-              </p>
-              <Link to={getDashboardLink()} className="lp-portal-btn">
-                {userRole ? "Go to Dashboard →" : "Enter ERP Portal →"}
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ── ABOUT ── */}
-        <section
-          className={`lp-section${activeSection === "about" ? " active" : ""}`}
-        >
-          <div className="lp-wrap">
-            <div className="lp-sec-header">
-              <div className="lp-eyebrow">Our Story</div>
-              <div className="lp-sec-title">
-                About Shree H.S. Model High School
-              </div>
-            </div>
-
-            <div className="lp-about-grid">
-              <div className="lp-about-img-wrap">
-                <img
-                  src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=800&auto=format&fit=crop"
-                  alt="School building"
-                  className="lp-about-img"
-                  loading="lazy"
-                />
-                <div className="lp-about-badge">
-                  <div className="num">2001</div>
-                  <div className="lbl">Established</div>
-                </div>
-              </div>
-              <div className="lp-about-content">
-                <h2>A Legacy of Learning in the Heart of Agra</h2>
-                <p>
-                  Shree H.S. Model High School was established in 2001 with a
-                  vision to provide quality education rooted in Indian values
-                  and cultural heritage. Located in Agra, Uttar Pradesh, our
-                  school has grown from a small institution to one of the most
-                  respected educational centers in the region.
-                </p>
-                <p>
-                  Affiliated with the Uttar Pradesh Madhyamik Shiksha Parishad
-                  (UP Board), we offer classes from primary level through Class
-                  XII, focusing on both Hindi and English mediums. Our
-                  curriculum blends modern pedagogy with traditional values.
-                </p>
-                <p>
-                  Over more than two decades, we have produced thousands of
-                  successful alumni — doctors, engineers, teachers, civil
-                  servants — all carrying the values we instilled in them.
-                </p>
-                <div className="lp-info-row">
-                  {[
-                    { label: "Established", value: "2001" },
-                    { label: "Affiliation", value: "UP Board (UPMSP)" },
-                    { label: "Principal", value: "Rang Bahadur Singh Chauhan" },
-                    { label: "Manager", value: "Dr. P.S. Chauhan" },
-                    { label: "Medium", value: "Hindi & English" },
-                    { label: "Students", value: "1200+ Enrolled" },
-                  ].map((i) => (
-                    <div key={i.label} className="lp-info-card">
-                      <div className="label">{i.label}</div>
-                      <div className="value">{i.value}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 64 }}>
-              <div className="lp-sec-header">
-                <div className="lp-eyebrow">Leadership</div>
-                <div className="lp-sec-title">Principal's Message</div>
-              </div>
-              <div className="lp-principal-card">
-                <div className="lp-principal-avatar">RC</div>
-                <div>
-                  <p className="lp-principal-quote">
-                    "{content.principalFull}"
-                  </p>
-                  <div className="lp-principal-name">
-                    {content.principalName}
-                  </div>
-                  <div className="lp-principal-role">
-                    Shree H.S. Model High School, Agra · Since 2001
-                  </div>
-                </div>
-              </div>
-              <div className={`lp-principal-card lp-manager-card`}>
-                <div className="lp-principal-avatar lp-manager-avatar">PC</div>
-                <div>
-                  <p className="lp-principal-quote">"{content.managerFull}"</p>
-                  <div className="lp-principal-name">{content.managerName}</div>
-                  <div className="lp-principal-role">
-                    Manager, Shree H.S. Model High School, Agra
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── CURRICULUM ── */}
-        <section
-          className={`lp-section${activeSection === "curriculum" ? " active" : ""}`}
-        >
-          <div className="lp-wrap">
-            <div className="lp-sec-header">
-              <div className="lp-eyebrow">Academics</div>
-              <div className="lp-sec-title">Our Curriculum</div>
-              <div className="lp-sec-sub">
-                UP Board affiliated. Classes from Primary to Senior Secondary
-                (Class XII) in Hindi & English medium.
-              </div>
-            </div>
-
-            <h3
-              style={{
-                fontFamily: "'Fraunces', serif",
-                fontSize: 18,
-                fontWeight: 700,
-                color: "var(--indigo-deep)",
-                marginBottom: 20,
-              }}
-            >
-              Classes We Offer
-            </h3>
-            <div className="lp-class-grid">
-              {[
-                { icon: "📘", name: "Primary", range: "Class 1 – 5" },
-                { icon: "📗", name: "Junior", range: "Class 6 – 8" },
-                { icon: "📙", name: "Secondary", range: "Class 9 – 10" },
-                {
-                  icon: "📕",
-                  name: "Senior Secondary",
-                  range: "Class 11 – 12",
-                },
-              ].map((c) => (
-                <div key={c.name} className="lp-class-card">
-                  <div className="icon">{c.icon}</div>
-                  <div className="name">{c.name}</div>
-                  <div className="range">{c.range}</div>
-                </div>
-              ))}
-            </div>
-
-            <h3
-              style={{
-                fontFamily: "'Fraunces', serif",
-                fontSize: 18,
-                fontWeight: 700,
-                color: "var(--indigo-deep)",
-                marginBottom: 20,
-              }}
-            >
-              Streams Available (Class 11–12)
-            </h3>
-            <div className="lp-stream-grid">
-              {[
-                {
-                  icon: "🔬",
-                  title: "Science Stream",
-                  desc: "Physics, Chemistry, Biology/Mathematics. Prepares students for medical, engineering, and research careers.",
-                  tag: "PCB / PCM",
-                  bg: "#e3e9fb",
-                  color: "#2d3f8f",
-                },
-                {
-                  icon: "📊",
-                  title: "Commerce Stream",
-                  desc: "Accounts, Business Studies, Economics. Foundation for CA, MBA, banking, and entrepreneurship.",
-                  tag: "Commerce",
-                  bg: "var(--marigold-light)",
-                  color: "#8a5a06",
-                },
-                {
-                  icon: "🏛️",
-                  title: "Arts / Humanities",
-                  desc: "History, Geography, Civics, Hindi Literature, Home Science. Ideal for civil services, law, and education.",
-                  tag: "Humanities",
-                  bg: "#e2ecd9",
-                  color: "#3f5a2a",
-                },
-              ].map((s) => (
-                <div key={s.title} className="lp-stream-card">
-                  <div
-                    className="lp-stream-icon"
-                    style={{ background: s.bg, color: s.color }}
-                  >
-                    {s.icon}
-                  </div>
-                  <h3>{s.title}</h3>
-                  <p>{s.desc}</p>
-                  <span
-                    className="lp-tag"
-                    style={{ background: s.bg, color: s.color }}
-                  >
-                    {s.tag}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <h3
-              style={{
-                fontFamily: "'Fraunces', serif",
-                fontSize: 18,
-                fontWeight: 700,
-                color: "var(--indigo-deep)",
-                marginBottom: 20,
-              }}
-            >
-              Core Subjects Taught
-            </h3>
-            <div className="lp-subject-grid">
-              {SUBJECTS.map((s) => (
-                <div key={s} className="lp-subject-chip">
-                  <div className="dot" />
-                  <span>{s}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── FACULTY ── */}
-        <section
-          className={`lp-section${activeSection === "teachers" ? " active" : ""}`}
-        >
-          <div className="lp-wrap">
-            <div className="lp-sec-header">
-              <div className="lp-eyebrow">Our Team</div>
-              <div className="lp-sec-title">Meet Our Faculty</div>
-              <div className="lp-sec-sub">
-                95+ qualified and experienced teachers dedicated to student
-                success and holistic development.
-              </div>
-            </div>
-            <div className="lp-teachers-grid">
-              {TEACHERS.map((t) => (
-                <div key={t.init} className="lp-teacher-card">
-                  <div
-                    className="lp-teacher-avatar"
-                    style={{ background: t.bg }}
-                  >
-                    {t.init}
-                  </div>
-                  <div className="lp-teacher-name">{t.name}</div>
-                  <div className="lp-teacher-subject">{t.subject}</div>
-                  <div className="lp-teacher-qual">{t.qual}</div>
-                  <span className="lp-teacher-exp">{t.exp}</span>
-                </div>
-              ))}
-            </div>
-            <div
-              style={{
-                marginTop: 42,
-                textAlign: "center",
-                padding: 28,
-                background: "var(--marigold-light)",
-                borderRadius: 14,
-                border: "1px solid var(--line)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 15,
-                  fontWeight: 700,
-                  color: "var(--indigo-deep)",
-                }}
-              >
-                95+ Faculty Members in Total
-              </div>
-              <div
-                style={{
-                  fontSize: 13.5,
-                  color: "var(--ink-faint)",
-                  marginTop: 6,
-                }}
-              >
-                All teachers are UP Board certified and hold B.Ed / M.Ed
-                qualifications with years of teaching experience.
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── GALLERY ── */}
-        <section
-          className={`lp-section${activeSection === "gallery" ? " active" : ""}`}
-        >
-          <div className="lp-wrap">
-            <div className="lp-sec-header">
-              <div className="lp-eyebrow">Campus Life</div>
-              <div className="lp-sec-title">School Gallery</div>
-              <div className="lp-sec-sub">
-                A glimpse into the vibrant life at Shree H.S. Model High School.
-              </div>
-            </div>
-            <div className="lp-gallery-grid">
-              {(content.gallery || []).map((g, i) => (
-                <div key={i} className="lp-gallery-item">
-                  <img
-                    src={g.src}
-                    alt={g.caption}
-                    className="lp-gallery-img"
-                    loading="lazy"
-                  />
-                  <div className="lp-gallery-caption">{g.caption}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── NOTICES ── */}
-        <section
-          className={`lp-section${activeSection === "notices" ? " active" : ""}`}
-        >
-          <div className="lp-wrap">
-            <div className="lp-sec-header">
-              <div className="lp-eyebrow">Updates</div>
-              <div className="lp-sec-title">Notice Board</div>
-              <div className="lp-sec-sub">
-                Latest announcements, exam schedules, and school events.
-              </div>
-            </div>
-            <div className="lp-notice-list">
-              {(content.notices || []).map((n, i) => (
-                <div key={i} className="lp-notice-item">
-                  <div className="lp-notice-date">
+          {notices.length > 0 ? (
+            <div className="n-notices-grid">
+              {notices.map((n, i) => (
+                <div className="n-notice-card" key={i}>
+                  <div className="n-notice-date">
                     <div className="day">{n.day}</div>
                     <div className="mon">{n.mon}</div>
                   </div>
                   <div>
-                    <div className="lp-notice-title">{n.title}</div>
-                    <div className="lp-notice-desc">{n.desc}</div>
-                    <span
-                      className={`lp-ntag ${NOTICE_TAGS[n.tag]?.className || n.tag}`}
-                    >
-                      {n.tagLabel || NOTICE_TAGS[n.tag]?.label || ""}
+                    <div className="n-notice-title">{n.title}</div>
+                    <div className="n-notice-desc">{n.desc}</div>
+                    <span className={`n-notice-tag ${TAG_STYLES[n.tag] || "n-tag-event"}`}>
+                      {TAG_LABELS[n.tag] || n.tag}
                     </span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* ── CONTACT ── */}
-        <section
-          className={`lp-section${activeSection === "contact" ? " active" : ""}`}
-        >
-          <div className="lp-wrap">
-            <div className="lp-sec-header">
-              <div className="lp-eyebrow">Get In Touch</div>
-              <div className="lp-sec-title">Contact Us</div>
-              <div className="lp-sec-sub">
-                We're happy to answer your questions about admissions,
-                academics, or any school matters.
-              </div>
+          ) : (
+            <div style={{ textAlign: "center", color: "var(--text-mid)", padding: "40px", background: "var(--off-white)", borderRadius: "16px" }}>
+              Koi notices nahi hain filhaal. WebAdmin se notices add karo.
             </div>
-            <div className="lp-contact-grid">
-              <div className="lp-contact-block">
-                {[
-                  {
-                    icon: "📍",
-                    label: "Address",
-                    value: content.contactAddress,
-                  },
-                  { icon: "📞", label: "Phone", value: content.contactPhone },
-                  { icon: "✉️", label: "Email", value: content.contactEmail },
-                  {
-                    icon: "🕘",
-                    label: "Office Hours",
-                    value: content.contactHours,
-                  },
-                  {
-                    icon: "🎓",
-                    label: "Admission Enquiry",
-                    value: content.contactPhoneAdmission,
-                  },
-                ].map((c) => (
-                  <div key={c.label} className="lp-contact-card">
-                    <div className="lp-contact-icon">{c.icon}</div>
-                    <div>
-                      <div className="lp-contact-label">{c.label}</div>
-                      <div className="lp-contact-value">{c.value}</div>
-                    </div>
-                  </div>
-                ))}
+          )}
+        </div>
+      </div>
 
-                <form
-                  style={{
-                    background: "#fff",
-                    borderRadius: 14,
-                    border: "1px solid var(--line)",
-                    padding: 24,
-                    boxShadow: "var(--shadow)",
-                  }}
-                  onSubmit={handleEnquiry}
-                >
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "var(--indigo-deep)",
-                      fontSize: 15,
-                      marginBottom: 16,
-                    }}
-                  >
-                    📩 Quick Enquiry
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 12,
-                    }}
-                  >
-                    <div>
-                      <label className="lp-field-label">Your Name</label>
-                      <input
-                        className="lp-field-input"
-                        type="text"
-                        placeholder="e.g. Ravi Sharma"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="lp-field-label">Phone Number</label>
-                      <input
-                        className="lp-field-input"
-                        type="tel"
-                        placeholder="10-digit mobile number"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="lp-field-label">Enquiry Type</label>
-                      <select
-                        className="lp-field-select"
-                        required
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Select enquiry type
-                        </option>
-                        <option>Admission Enquiry</option>
-                        <option>Fee Related</option>
-                        <option>Exam / Result</option>
-                        <option>General Query</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="lp-field-label">Your Message</label>
-                      <textarea
-                        className="lp-field-textarea"
-                        rows={3}
-                        placeholder="Tell us briefly how we can help"
-                      />
-                    </div>
-                    <button type="submit" className="lp-submit-btn">
-                      Send Enquiry
-                    </button>
-                    <div className={`lp-form-ok ${formStatus}`}>
-                      ✓ Thank you! We will contact you soon.
-                    </div>
-                  </div>
-                </form>
+      {/* ── Features / Why Us ── */}
+      <div id="n-features" className="n-section alt-bg">
+        <div className="n-section-inner">
+          <div className="n-section-header">
+            <h2 className="n-section-title">Why Shree H.S. Model?</h2>
+            <p className="n-section-sub">Delivering excellence in education through modern infrastructure, dedicated faculty, and a student-first approach.</p>
+          </div>
+          <div className="n-features-grid">
+            {whyCards.map((f, i) => (
+              <div className="n-feature-card" key={i}>
+                <div className="n-feature-icon" style={{ background: ICON_BG[i % ICON_BG.length] }}>
+                  {f.icon}
+                </div>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-              <div>
-                <div className="lp-map">
-                  <iframe
-                    title="Map showing Agra, Uttar Pradesh"
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d114427.61568!2d77.9908!3d27.1767!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x39747121d702ff6d%3A0xdd2ae4803f767dde!2sAgra%2C%20Uttar%20Pradesh!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin"
-                    allowFullScreen
-                    loading="lazy"
-                  />
-                </div>
-                <div
-                  style={{
-                    marginTop: 20,
-                    padding: "20px 22px",
-                    background:
-                      "linear-gradient(150deg,var(--marigold-light),#f6f1e7)",
-                    borderRadius: 14,
-                    border: "1px solid var(--line)",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "var(--indigo-deep)",
-                      fontSize: 15,
-                      marginBottom: 12,
-                    }}
-                  >
-                    📋 Documents for Admission
-                  </div>
-                  <ul
-                    style={{
-                      listStyle: "none",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
-                  >
-                    {[
-                      "Birth Certificate (Original + Photocopy)",
-                      "Previous Class Marksheet / Transfer Certificate",
-                      "Aadhar Card of Student & Parent",
-                      "Passport size photographs (4 copies)",
-                      "Caste Certificate (if applicable)",
-                    ].map((d) => (
-                      <li
-                        key={d}
-                        style={{
-                          fontSize: 13.5,
-                          color: "var(--ink-soft)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <span style={{ color: "var(--clay)" }}>✓</span> {d}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+      {/* ── Principal's Message ── */}
+      <div className="n-section">
+        <div className="n-section-inner">
+          <div className="n-section-header">
+            <h2 className="n-section-title">Principal's Message</h2>
+          </div>
+          <div className="n-principal-card">
+            <div className="n-principal-avatar">{principalInitials}</div>
+            <div>
+              <div className="n-principal-quote-mark">"</div>
+              <div className="n-principal-quote">
+                {c.principalQuoteShort || DEFAULT_CONTENT.principalQuoteShort}
               </div>
+              <div className="n-principal-divider" />
+              <div className="n-principal-name">{c.principalName || DEFAULT_CONTENT.principalName}</div>
+              <div className="n-principal-role">Principal · Shree H.S. Model Inter College</div>
             </div>
           </div>
-        </section>
-      </main>
+        </div>
+      </div>
 
-      {/* Footer */}
-      <footer className="lp-footer">
-        <div className="lp-footer-inner">
-          <div className="lp-footer-grid">
-            <div className="lp-footer-brand">
-              <div className="lp-footer-brand-name">
-                🏫 Shree H.S. Model High School
-              </div>
-              <p>
-                Nurturing minds and building character since 2001. UP Board
-                affiliated school in Agra dedicated to academic excellence and
-                Indian values.
-              </p>
-              <div className="lp-footer-badges">
-                {["UP Board Affiliated", "Est. 2001", "Agra, UP"].map((b) => (
-                  <span key={b} className="lp-footer-badge">
-                    {b}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="lp-footer-col">
-              <h4>Quick Links</h4>
-              {[
-                { label: "Home", sec: "home" },
-                { label: "About School", sec: "about" },
-                { label: "Curriculum", sec: "curriculum" },
-                { label: "Our Faculty", sec: "teachers" },
-                { label: "Gallery", sec: "gallery" },
-                { label: "Notice Board", sec: "notices" },
-              ].map((l) => (
-                <button key={l.sec} onClick={() => showSection(l.sec)}>
-                  {l.label}
-                </button>
+      {/* ── Gallery ── */}
+      <div id="n-gallery" className="n-section alt-bg">
+        <div className="n-section-inner">
+          <div className="n-section-header">
+            <h2 className="n-section-title">Life at Shree H.S. Model</h2>
+            <p className="n-section-sub">A glimpse into the vibrant campus life, events, and achievements of our school community.</p>
+          </div>
+          {gallery.length > 0 ? (
+            <div className="n-gallery-grid">
+              {gallery.map((g, i) => (
+                <div className="n-gallery-item" key={i}>
+                  <img className="n-gallery-img" src={g.src} alt={g.caption || `Gallery ${i+1}`} />
+                  {g.caption && <div className="n-gallery-caption">{g.caption}</div>}
+                </div>
               ))}
             </div>
-            <div className="lp-footer-col">
-              <h4>Contact</h4>
-              <a href="#">📍 Agra, Uttar Pradesh – 282001</a>
-              <a href="tel:+915622345678">📞 +91 562 234-5678</a>
-              <a href="mailto:info@shreehsmodelhs.edu.in">
-                ✉️ info@shreehsmodelhs.edu.in
-              </a>
-              <a href="#">🕘 Mon–Sat: 8 AM – 2:30 PM</a>
-              <div style={{ marginTop: 16 }}>
-                <button
-                  className="lp-portal-btn"
-                  onClick={() => showSection("contact")}
-                >
-                  📩 Admission Enquiry
-                </button>
+          ) : (
+            <div style={{ textAlign: "center", color: "var(--text-mid)", padding: "40px", background: "#fff", borderRadius: "16px" }}>
+              Gallery mein koi photos nahi hain. WebAdmin se photos add karo.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Contact ── */}
+      <div id="n-contact" className="n-section">
+        <div className="n-section-inner">
+          <div className="n-section-header">
+            <h2 className="n-section-title">Contact Us</h2>
+            <p className="n-section-sub">Reach out to us for admissions, queries, or visit our campus in Lucknow.</p>
+          </div>
+          <div className="n-contact-grid">
+            <div className="n-contact-info">
+              <div className="n-contact-card">
+                <div className="n-contact-icon">📍</div>
+                <div>
+                  <div className="n-contact-label">Address</div>
+                  <div className="n-contact-value">{c.contactAddress || DEFAULT_CONTENT.contactAddress}</div>
+                </div>
+              </div>
+              <div className="n-contact-card">
+                <div className="n-contact-icon">📞</div>
+                <div>
+                  <div className="n-contact-label">Phone</div>
+                  <div className="n-contact-value">{c.contactPhone || DEFAULT_CONTENT.contactPhone}</div>
+                  {c.contactPhoneAdmission && (
+                    <div className="n-contact-value" style={{ marginTop: 4, fontSize: 13, color: "var(--text-mid)" }}>
+                      Admissions: {c.contactPhoneAdmission}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="n-contact-card">
+                <div className="n-contact-icon">✉️</div>
+                <div>
+                  <div className="n-contact-label">Email</div>
+                  <div className="n-contact-value">{c.contactEmail || DEFAULT_CONTENT.contactEmail}</div>
+                </div>
+              </div>
+              <div className="n-contact-card">
+                <div className="n-contact-icon">🕐</div>
+                <div>
+                  <div className="n-contact-label">Office Hours</div>
+                  <div className="n-contact-value">{c.contactHours || DEFAULT_CONTENT.contactHours}</div>
+                </div>
               </div>
             </div>
+
+            <form className="n-contact-form" onSubmit={handleFormSubmit}>
+              <div>
+                <label className="n-field-label">Full Name</label>
+                <input type="text" className="n-field-input" placeholder="Your full name" required />
+              </div>
+              <div>
+                <label className="n-field-label">Phone Number</label>
+                <input type="tel" className="n-field-input" placeholder="+91 00000 00000" required />
+              </div>
+              <div>
+                <label className="n-field-label">Enquiry Type</label>
+                <select className="n-field-select" required>
+                  <option value="">Select...</option>
+                  <option>Admission Enquiry</option>
+                  <option>General Query</option>
+                  <option>Fee Information</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="n-field-label">Message</label>
+                <textarea className="n-field-textarea" rows={4} placeholder="Write your message..." />
+              </div>
+              <button type="submit" className="n-submit-btn">Send Message →</button>
+              {formSent && <div className="n-form-success">✅ Your message has been sent! We'll get back to you soon.</div>}
+            </form>
           </div>
-          <div className="lp-footer-bottom">
-            <span>
-              © {new Date().getFullYear()} Shree H.S. Model High School, Agra.
-              All rights reserved.
-            </span>
-            <span>
-              Principal: Rang Bahadur Singh Chauhan | Manager: Dr. P.S. Chauhan
-            </span>
+        </div>
+      </div>
+
+      {/* ── Footer ── */}
+      <footer className="n-footer">
+        <div className="n-footer-inner">
+          <div className="n-footer-grid">
+            <div className="n-footer-logo">
+              <div className="n-footer-logo-emblem">
+                <img src="https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?q=80&w=100&auto=format&fit=crop" alt="Logo"
+                  onError={e => { e.target.style.display="none"; e.target.parentNode.textContent="SH"; }} />
+              </div>
+              <div>
+                <div className="n-footer-logo-name">Shree H.S. Model Inter College</div>
+                <div className="n-footer-logo-est">Est. 1998 · Lucknow, U.P.</div>
+              </div>
+              <div className="n-footer-social">
+                <a href="#" className="n-social-link" title="Instagram">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+                </a>
+                <a href="#" className="n-social-link" title="Facebook">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                </a>
+                <a href="#" className="n-social-link" title="YouTube">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-1.96C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.4 19.54C5.12 20 12 20 12 20s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="currentColor" stroke="none"/></svg>
+                </a>
+              </div>
+            </div>
+
+            <div className="n-footer-col">
+              <h4>Quick Links</h4>
+              <button onClick={() => scrollTo("n-about")}>About Us</button>
+              <button onClick={() => scrollTo("n-features")}>Academics</button>
+              <button onClick={() => scrollTo("n-notices")}>Notices</button>
+              <button onClick={() => scrollTo("n-gallery")}>Gallery</button>
+              <button onClick={() => scrollTo("n-contact")}>Contact</button>
+            </div>
+
+            <div className="n-footer-col">
+              <h4>Portals</h4>
+              <Link to="/login">Parent Login</Link>
+              <Link to="/login">Teacher Login</Link>
+              <Link to="/login">Admin Login</Link>
+              <Link to="/signup">Register</Link>
+            </div>
+
+            <div className="n-footer-col">
+              <h4>Policies</h4>
+              <a href="#">Privacy Policy</a>
+              <a href="#">Terms &amp; Conditions</a>
+              <a href="#">Admission Policy</a>
+              <a href="#">Code of Conduct</a>
+            </div>
+
+            <div className="n-footer-col">
+              <h4>Get in Touch</h4>
+              <a href="#">{c.contactAddress || DEFAULT_CONTENT.contactAddress}</a>
+              <a href={`tel:${c.contactPhone}`}>{c.contactPhone || DEFAULT_CONTENT.contactPhone}</a>
+              <a href={`mailto:${c.contactEmail}`}>{c.contactEmail || DEFAULT_CONTENT.contactEmail}</a>
+              <a href="#">{c.contactHours || DEFAULT_CONTENT.contactHours}</a>
+            </div>
+          </div>
+
+          <div className="n-footer-bottom">
+            <span>© 2025 Shree H.S. Model Inter College, Lucknow. All rights reserved.</span>
+            <span>Designed with ❤ for excellence in education</span>
           </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 };

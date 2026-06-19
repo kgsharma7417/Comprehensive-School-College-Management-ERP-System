@@ -1,648 +1,315 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import {
-  getAuth,
-  signInWithEmailAndPassword as fbSignIn,
-  signOut as fbSignOut,
-  onAuthStateChanged as fbOnAuthStateChanged,
-  createUserWithEmailAndPassword as fbCreateUser,
-} from "firebase/auth";
-import {
-  getFirestore,
-  doc as fbDoc,
-  getDoc as fbGetDoc,
-  setDoc as fbSetDoc,
-  updateDoc as fbUpdateDoc,
-  collection as fbCollection,
-  getDocs as fbGetDocs,
-  query as fbQuery,
-  where as fbWhere,
-  addDoc as fbAddDoc,
-} from "firebase/firestore";
+// API client adapter — tries real backend first, falls back to mock auth when unavailable
 
-// Read Firebase config from Vite environment variables (VITE_ prefix)
-const liveConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+// ── Mock user database (used when backend is unreachable) ─────────────────────
+const MOCK_USERS = {
+  "admin@school.com":    { uid: "mock-admin-001",    email: "admin@school.com",    name: "Admin User",       role: "admin",    password: "admin123" },
+  "webadmin@school.com": { uid: "mock-webadmin-001", email: "webadmin@school.com", name: "Web Admin",        role: "webadmin", password: "webadmin123" },
+  "teacher@school.com":  { uid: "mock-teacher-001",  email: "teacher@school.com",  name: "Teacher User",     role: "teacher",  password: "teacher123" },
+  "parent@school.com":   { uid: "mock-parent-001",   email: "parent@school.com",   name: "Parent User",      role: "parent",   password: "parent123" },
 };
 
-// Consider Firebase configured only when required env vars are present
-const isFirebaseConfigured = Boolean(
-  liveConfig.apiKey && liveConfig.projectId && liveConfig.appId,
-);
+const MOCK_TOKEN_PREFIX = "mock_token_";
+const MOCK_MODE_KEY = "school_erp_mock_mode";
 
-let firebaseApp;
-let realAuth;
-let realDb;
-let secondaryAuth;
+const getHeaders = () => {
+  const token = sessionStorage.getItem("auth_token");
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+};
 
-if (isFirebaseConfigured) {
-  firebaseApp = getApps().length === 0 ? initializeApp(liveConfig) : getApp();
-  realAuth = getAuth(firebaseApp);
-  realDb = getFirestore(firebaseApp);
+// ── Check if backend is reachable ─────────────────────────────────────────────
+const checkBackendReachable = async () => {
   try {
-    const secondaryApp = initializeApp(liveConfig, "SecondaryApp");
-    secondaryAuth = getAuth(secondaryApp);
-  } catch (e) {
-    import("./utils/logger").then(({ warn }) => warn("Secondary app init failed", e));
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2000);
+    const res = await fetch(`${API_URL}/auth/me`, {
+      signal: ctrl.signal,
+      headers: { "Content-Type": "application/json" },
+    });
+    clearTimeout(t);
+    return res.status !== 0; // any real HTTP response means backend is up
+  } catch {
+    return false;
   }
-}
-
-// ----------------------------------------------------
-// SIMULATION / MOCK FALLBACK DATABASE
-// ----------------------------------------------------
-
-const MOCK_STORAGE_KEY = "school_erp_mock_db";
-
-const getMockDb = () => {
-  let dbData = localStorage.getItem(MOCK_STORAGE_KEY);
-  if (!dbData) {
-    dbData = {
-      users: {
-        "admin-uid": {
-          uid: "admin-uid",
-          name: "Dr. Sarah Jenkins",
-          email: "admin@school.com",
-          password: "admin123",
-          role: "admin",
-        },
-        "webadmin-uid": {
-          uid: "webadmin-uid",
-          name: "Web Content Manager",
-          email: "webadmin@school.com",
-          password: "webadmin123",
-          role: "webadmin",
-        },
-        "teacher-uid": {
-          uid: "teacher-uid",
-          name: "Mr. Robert Harrison",
-          email: "teacher@school.com",
-          password: "teacher123",
-          role: "teacher",
-          class: "Class 10",
-          section: "A",
-        },
-        "parent-uid": {
-          uid: "parent-uid",
-          name: "David Miller",
-          email: "parent@school.com",
-          password: "parent123",
-          role: "parent",
-          studentId: "student-1",
-        },
-      },
-      students: [
-        {
-          id: "student-1",
-          name: "Emily Miller",
-          email: "emily@school.com",
-          class: "Class 10",
-          section: "A",
-          rollNo: "101",
-          fees: {
-            total: 50000,
-            paid: 35000,
-            balance: 15000,
-            dueDate: "2026-06-30",
-            breakdown: {
-              monthlyTuition: 3000,
-              yearlyTerm: 10000,
-              extraCharges: 4000
-            }
-          },
-          attendanceHistory: [
-            { date: "2026-06-16", status: "Present" },
-            { date: "2026-06-15", status: "Present" },
-            { date: "2026-06-12", status: "Present" },
-            { date: "2026-06-11", status: "Absent" },
-            { date: "2026-06-10", status: "Present" },
-            { date: "2026-06-09", status: "Present" },
-            { date: "2026-06-08", status: "Present" },
-            { date: "2026-06-05", status: "Present" },
-          ],
-          overallAttendance: 88,
-          marks: [
-            {
-              subject: "Mathematics",
-              exam: "Mid-Term",
-              marksObtained: 88,
-              maxMarks: 100,
-            },
-            {
-              subject: "Science",
-              exam: "Mid-Term",
-              marksObtained: 92,
-              maxMarks: 100,
-            },
-            {
-              subject: "English",
-              exam: "Mid-Term",
-              marksObtained: 85,
-              maxMarks: 100,
-            },
-          ],
-          concessions: [],
-        },
-        {
-          id: "student-2",
-          name: "James Wilson",
-          email: "james@school.com",
-          class: "Class 10",
-          section: "A",
-          rollNo: "102",
-          fees: {
-            total: 50000,
-            paid: 50000,
-            balance: 0,
-            dueDate: "2026-06-30",
-            breakdown: {
-              monthlyTuition: 3000,
-              yearlyTerm: 10000,
-              extraCharges: 4000
-            }
-          },
-          attendanceHistory: [
-            { date: "2026-06-16", status: "Present" },
-            { date: "2026-06-15", status: "Present" },
-          ],
-          overallAttendance: 100,
-          marks: [
-            {
-              subject: "Mathematics",
-              exam: "Mid-Term",
-              marksObtained: 72,
-              maxMarks: 100,
-            },
-            {
-              subject: "Science",
-              exam: "Mid-Term",
-              marksObtained: 78,
-              maxMarks: 100,
-            },
-          ],
-          concessions: [],
-        },
-        {
-          id: "student-3",
-          name: "Sophia Chen",
-          email: "sophia@school.com",
-          class: "9B",
-          section: "B",
-          rollNo: "201",
-          fees: {
-            total: 48000,
-            paid: 20000,
-            balance: 28000,
-            dueDate: "2026-06-25",
-            breakdown: {
-              monthlyTuition: 2800,
-              yearlyTerm: 9000,
-              extraCharges: 5400
-            }
-          },
-          attendanceHistory: [
-            { date: "2026-06-16", status: "Absent" },
-            { date: "2026-06-15", status: "Present" },
-          ],
-          overallAttendance: 50,
-          marks: [
-            {
-              subject: "Mathematics",
-              exam: "Mid-Term",
-              marksObtained: 95,
-              maxMarks: 100,
-            },
-          ],
-          concessions: [],
-        },
-      ],
-      teachers: [
-        {
-          id: "teacher-uid",
-          name: "Mr. Robert Harrison",
-          email: "teacher@school.com",
-          class: "Class 10",
-          section: "A",
-          designation: "Senior PGT Mathematics",
-          joiningDate: "2022-08-10",
-          salary: 45000,
-          salaryDetails: {
-            base: 40000,
-            allowances: 5000,
-            deductions: 0,
-            net: 45000
-          },
-          bankDetails: "SBI A/C: 38291029302",
-          syllabusCompletion: 78,
-          status: "Present",
-          checkIn: "08:30 AM",
-          remarks: "On Time",
-        },
-      ],
-      leaveRequests: [
-        {
-          id: "lr1",
-          teacherId: "teacher-uid",
-          teacherName: "Mr. Robert Harrison",
-          days: "2 Days",
-          reason: "Medical Checkup",
-          status: "Pending",
-          date: "2026-06-16",
-        },
-      ],
-      feePaymentRequests: [
-        {
-          id: "pr1",
-          studentId: "student-1",
-          studentName: "Emily Miller",
-          class: "Class 10",
-          amountPaid: 15000,
-          paymentDate: "2026-06-15",
-          transactionId: "TXN123456789",
-          message: "Paid remaining balance via GPay",
-          status: "Approved",
-        },
-      ],
-      notices: [
-        {
-          id: "n1",
-          title: "Monsoon Break Notification",
-          content:
-            "Due to excessive rain warnings, college will remain closed tomorrow, June 17, 2026.",
-          date: "2026-06-16",
-          audience: "All",
-        },
-        {
-          id: "n2",
-          title: "Teacher Faculty Meeting",
-          content:
-            "All PGT teachers must report in the main conference room at 2 PM for syllabus review.",
-          date: "2026-06-15",
-          audience: "Teachers",
-        },
-      ],
-      attendance: {},
-      salarySlips: [
-        {
-          id: "ss1",
-          teacherId: "teacher-uid",
-          month: "May 2026",
-          base: 45000,
-          deductions: 1500,
-          net: 43500,
-          status: "Paid",
-        },
-      ],
-      timetables: {
-        "Class 10": [
-          {
-            period: "1st",
-            time: "09:00 AM - 09:45 AM",
-            subject: "Mathematics",
-            teacherName: "Mr. Robert Harrison",
-          },
-          {
-            period: "2nd",
-            time: "09:45 AM - 10:30 AM",
-            subject: "Science",
-            teacherName: "Mrs. Anjali Sharma",
-          },
-          {
-            period: "3rd",
-            time: "10:45 AM - 11:30 AM",
-            subject: "English",
-            teacherName: "Ms. Priya Singh",
-          },
-        ],
-      },
-      homework: [
-        {
-          id: "hw1",
-          class: "Class 10",
-          subject: "Mathematics",
-          title: "Algebra exercise 4.2",
-          description: "Solve all questions from 1 to 10 in homework copy.",
-          dueDate: "2026-06-18",
-        },
-      ],
-      resources: [
-        {
-          id: "res1",
-          title: "Class 10 Algebra Formulas Cheat Sheet",
-          type: "PDF",
-          url: "#",
-          size: "1.2 MB",
-        },
-      ],
-    };
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(dbData));
-  } else {
-    dbData = JSON.parse(dbData);
-  }
-  return dbData;
 };
 
-const saveMockDb = (data) => {
-  localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(data));
-};
+// ─────────────────────────────────────────────────────────────────────────────
+export const auth = { isMock: false };
+export const db   = { isMock: false };
 
-let mockCurrentUser = null;
-const authListeners = [];
+let authListeners = [];
+let currentUser   = null;
 
-const notifyAuthListeners = () => {
-  authListeners.forEach((cb) => cb(mockCurrentUser));
-};
+const notifyListeners = () => authListeners.forEach((cb) => cb(currentUser));
 
-const cachedUser = sessionStorage.getItem("school_erp_auth_user");
-if (cachedUser) {
-  mockCurrentUser = JSON.parse(cachedUser);
-}
+// ── Auto-restore session on page load ────────────────────────────────────────
+const initAuth = async () => {
+  const token      = sessionStorage.getItem("auth_token");
+  const cachedUser = sessionStorage.getItem("school_erp_auth_user");
 
-// ----------------------------------------------------
-// EXPORTS
-// ----------------------------------------------------
-export const auth = isFirebaseConfigured ? realAuth : { isMock: true };
-export const db = isFirebaseConfigured ? realDb : { isMock: true };
+  if (!token || !cachedUser) return;
 
-// Auth API Wrapper
-export const signInWithEmailAndPassword = async (authObj, email, password) => {
-  if (!isFirebaseConfigured) {
-    const database = getMockDb();
-    const matchedUser = Object.values(database.users).find(
-      (u) => u.email.toLowerCase() === email.toLowerCase(),
-    );
+  currentUser = JSON.parse(cachedUser);
+  notifyListeners(); // fire immediately with cached user
 
-    if (
-      matchedUser &&
-      typeof matchedUser.password === "string" &&
-      matchedUser.password === password
-    ) {
-      mockCurrentUser = {
-        uid: matchedUser.uid,
-        email: matchedUser.email,
-        displayName: matchedUser.name,
-      };
-      sessionStorage.setItem(
-        "school_erp_auth_user",
-        JSON.stringify(mockCurrentUser),
-      );
-      notifyAuthListeners();
-      return { user: mockCurrentUser };
-    }
-
-    throw new Error("auth/invalid-credential");
-  }
-  return fbSignIn(authObj, email, password);
-};
-
-export const createUserWithEmailAndPassword = async (
-  authObj,
-  email,
-  password,
-) => {
-  if (!isFirebaseConfigured) {
-    // For mock mode: just validate and return a user object
-    if (!email || password.length < 6) {
-      throw new Error("Invalid email or password (min 6 chars)");
-    }
-    const mockUid = "mock_" + Math.random().toString(36).substring(2, 9);
-    return {
-      user: {
-        uid: mockUid,
-        email,
-        displayName: "",
-      },
-    };
-  }
-  return fbCreateUser(authObj, email, password);
-};
-
-export const adminCreateUser = async (email, password) => {
-  if (!isFirebaseConfigured) {
-    if (!email || password.length < 6) {
-      throw new Error("Invalid email or password (min 6 chars)");
-    }
-    const mockUid = "mock_" + Math.random().toString(36).substring(2, 9);
-    return {
-      user: {
-        uid: mockUid,
-        email,
-        displayName: "",
-      },
-    };
-  }
-  return fbCreateUser(secondaryAuth || realAuth, email, password);
-};
-
-export const signOut = async (authObj) => {
-  if (!isFirebaseConfigured) {
-    mockCurrentUser = null;
-    sessionStorage.removeItem("school_erp_auth_user");
-    notifyAuthListeners();
+  // If mock token → no need to verify with backend
+  if (token.startsWith(MOCK_TOKEN_PREFIX)) {
     return;
   }
-  return fbSignOut(authObj);
-};
 
-export const onAuthStateChanged = (authObj, callback) => {
-  if (!isFirebaseConfigured) {
-    authListeners.push(callback);
-    callback(mockCurrentUser);
-    return () => {
-      const idx = authListeners.indexOf(callback);
-      if (idx > -1) authListeners.splice(idx, 1);
-    };
+  // Try to verify with real backend
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch(`${API_URL}/auth/me`, {
+      headers: getHeaders(),
+      signal: ctrl.signal,
+    });
+    if (res.ok) {
+      const user = await res.json();
+      currentUser = user;
+      sessionStorage.setItem("school_erp_auth_user", JSON.stringify(currentUser));
+      notifyListeners();
+    } else {
+      // Token invalid — log out
+      sessionStorage.removeItem("auth_token");
+      sessionStorage.removeItem("school_erp_auth_user");
+      currentUser = null;
+      notifyListeners();
+    }
+  } catch {
+    // Backend unreachable — keep cached user (offline mode)
+    console.warn("[Auth] Backend unreachable, using cached session.");
   }
-  return fbOnAuthStateChanged(authObj, callback);
 };
+initAuth();
 
-// Firestore API Wrapper
-export const doc = (dbObj, collectionName, docId) => {
-  if (!isFirebaseConfigured) {
-    return { isMockRef: true, collectionName, docId };
-  }
-  return fbDoc(dbObj, collectionName, docId);
-};
+// ── Sign In ───────────────────────────────────────────────────────────────────
+export const signInWithEmailAndPassword = async (_authObj, email, password) => {
+  const emailKey = email.trim().toLowerCase();
 
-export const getDoc = async (docRef) => {
-  if (!isFirebaseConfigured) {
-    const database = getMockDb();
-    const { collectionName, docId } = docRef;
-    let data = null;
+  // 1️⃣ Try real backend first
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 4000);
 
-    if (collectionName === "users") {
-      data = database.users[docId];
-    } else if (collectionName === "attendance") {
-      data = database.attendance[docId];
+    const res = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+      signal: ctrl.signal,
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      sessionStorage.setItem("auth_token", data.token);
+      sessionStorage.setItem("school_erp_auth_user", JSON.stringify(data.user));
+      sessionStorage.removeItem(MOCK_MODE_KEY);
+      currentUser = data.user;
+      notifyListeners();
+      return { user: currentUser };
+    } else {
+      // Backend is up but rejected credentials → real error
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || "Invalid email or password");
+    }
+  } catch (err) {
+    // If it's a credential rejection (not a network error), rethrow
+    if (err.message && !err.message.includes("fetch") && !err.message.includes("abort") && !err.message.includes("network") && !err.message.includes("Failed")) {
+      throw err;
     }
 
-    return {
-      exists: () => !!data,
-      data: () => data,
+    // 2️⃣ Backend unreachable → use mock auth
+    console.warn("[Auth] Backend not reachable, using mock authentication.");
+
+    const mockUser = MOCK_USERS[emailKey];
+    if (!mockUser) {
+      throw new Error("Invalid email or password");
+    }
+    if (mockUser.password !== password) {
+      throw new Error("Invalid email or password");
+    }
+
+    // Create mock session
+    const mockToken = `${MOCK_TOKEN_PREFIX}${mockUser.uid}_${Date.now()}`;
+    const userObj = {
+      uid: mockUser.uid,
+      email: mockUser.email,
+      displayName: mockUser.name,
+      role: mockUser.role,
     };
+
+    sessionStorage.setItem("auth_token", mockToken);
+    sessionStorage.setItem("school_erp_auth_user", JSON.stringify(userObj));
+    sessionStorage.setItem(MOCK_MODE_KEY, "true");
+    currentUser = userObj;
+    notifyListeners();
+    return { user: currentUser };
   }
-  return fbGetDoc(docRef);
+};
+
+// ── Register ──────────────────────────────────────────────────────────────────
+export const createUserWithEmailAndPassword = async (_authObj, email, password) => {
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 4000);
+
+    const res = await fetch(`${API_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+      signal: ctrl.signal,
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || "Registration failed");
+    }
+
+    const data = await res.json();
+    sessionStorage.setItem("auth_token", data.token);
+    sessionStorage.setItem("school_erp_auth_user", JSON.stringify(data.user));
+    currentUser = data.user;
+    notifyListeners();
+    return { user: currentUser };
+  } catch (err) {
+    if (err.message && !err.message.includes("fetch") && !err.message.includes("abort") && !err.message.includes("Failed")) {
+      throw err;
+    }
+    throw new Error("Backend server not running. Please start the server on port 5000.");
+  }
+};
+
+// ── Admin Create User ─────────────────────────────────────────────────────────
+export const adminCreateUser = async (email, password, role = "teacher", extra = {}) => {
+  const res = await fetch(`${API_URL}/auth/admin-create-user`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ email, password, role, ...extra }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to create user by admin");
+  }
+  return await res.json();
+};
+
+// ── Sign Out ──────────────────────────────────────────────────────────────────
+export const signOut = async (_authObj) => {
+  sessionStorage.removeItem("auth_token");
+  sessionStorage.removeItem("school_erp_auth_user");
+  sessionStorage.removeItem(MOCK_MODE_KEY);
+  currentUser = null;
+  notifyListeners();
+};
+
+// ── Auth State Observer ───────────────────────────────────────────────────────
+export const onAuthStateChanged = (_authObj, callback) => {
+  authListeners.push(callback);
+  callback(currentUser); // fire immediately with current state
+  return () => {
+    const idx = authListeners.indexOf(callback);
+    if (idx > -1) authListeners.splice(idx, 1);
+  };
+};
+
+// ── Firestore API Simulation over REST ───────────────────────────────────────
+export const doc = (_dbObj, collectionName, docId) => ({ collectionName, docId });
+export const collection = (_dbObj, collectionName) => ({ collectionName, constraints: [] });
+export const query = (colRef, ...constraints) => ({ ...colRef, constraints });
+export const where = (field, op, value) => ({ type: "where", field, op, value });
+
+export const getDoc = async (docRef) => {
+  const { collectionName, docId } = docRef;
+  const isMock = sessionStorage.getItem(MOCK_MODE_KEY) === "true";
+
+  // In mock mode — synthesize user profile from sessionStorage
+  if (isMock || (sessionStorage.getItem("auth_token") || "").startsWith(MOCK_TOKEN_PREFIX)) {
+    const cached = sessionStorage.getItem("school_erp_auth_user");
+    if (cached && collectionName === "users") {
+      const u = JSON.parse(cached);
+      return { exists: () => true, data: () => ({ uid: u.uid, email: u.email, name: u.displayName, role: u.role }) };
+    }
+    return { exists: () => false, data: () => null };
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/${collectionName}/${docId}`, { headers: getHeaders() });
+    if (!res.ok) return { exists: () => false, data: () => null };
+    const data = await res.json();
+    return { exists: () => true, data: () => data };
+  } catch {
+    return { exists: () => false, data: () => null };
+  }
 };
 
 export const setDoc = async (docRef, data) => {
-  if (!isFirebaseConfigured) {
-    const database = getMockDb();
-    const { collectionName, docId } = docRef;
+  const isMock = (sessionStorage.getItem("auth_token") || "").startsWith(MOCK_TOKEN_PREFIX);
+  if (isMock) return data; // No-op in mock mode
 
-    if (collectionName === "users") {
-      database.users[docId] = { ...data, uid: docId };
-    } else if (collectionName === "attendance") {
-      database.attendance[docId] = data;
-    }
-
-    saveMockDb(database);
-    return;
+  const { collectionName, docId } = docRef;
+  const res = await fetch(`${API_URL}/${collectionName}/${docId}`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to save document");
   }
-  return fbSetDoc(docRef, data);
+  return await res.json();
 };
 
 export const updateDoc = async (docRef, data) => {
-  if (!isFirebaseConfigured) {
-    const database = getMockDb();
-    const { collectionName, docId } = docRef;
-
-    if (collectionName === "users") {
-      database.users[docId] = { ...database.users[docId], ...data };
-    } else if (collectionName === "attendance") {
-      database.attendance[docId] = { ...database.attendance[docId], ...data };
-    } else {
-      // General handler for array collections (like students, teachers, etc)
-      if (Array.isArray(database[collectionName])) {
-        const idx = database[collectionName].findIndex(
-          (item) => item.id === docId || item.uid === docId,
-        );
-        if (idx > -1) {
-          database[collectionName][idx] = {
-            ...database[collectionName][idx],
-            ...data,
-          };
-        }
-      } else if (database[collectionName] && typeof database[collectionName] === "object") {
-        database[collectionName][docId] = {
-          ...database[collectionName][docId],
-          ...data,
-        };
-      }
-    }
-
-    saveMockDb(database);
-    return;
+  const { collectionName, docId } = docRef;
+  const res = await fetch(`${API_URL}/${collectionName}/${docId}`, {
+    method: "PUT",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to update document");
   }
-  return fbUpdateDoc(docRef, data);
-};
-
-export const collection = (dbObj, collectionName) => {
-  if (!isFirebaseConfigured) {
-    return { isMockCol: true, collectionName };
-  }
-  return fbCollection(dbObj, collectionName);
+  return await res.json();
 };
 
 export const getDocs = async (queryOrColRef) => {
-  if (!isFirebaseConfigured) {
-    const database = getMockDb();
-    const { collectionName, constraints } = queryOrColRef;
-    let list = [];
+  const isMock = (sessionStorage.getItem("auth_token") || "").startsWith(MOCK_TOKEN_PREFIX);
+  if (isMock) return { docs: [], empty: true }; // Empty lists in mock mode
 
-    if (collectionName === "users") {
-      list = Object.values(database.users);
-    } else if (collectionName === "students") {
-      list = database.students;
-    } else if (collectionName === "teachers") {
-      list = database.teachers;
-    } else if (collectionName === "notices") {
-      list = database.notices;
-    } else if (collectionName === "leaveRequests") {
-      list = database.leaveRequests;
-    } else if (collectionName === "feePaymentRequests") {
-      list = database.feePaymentRequests;
-    } else if (collectionName === "salarySlips") {
-      list = database.salarySlips;
-    } else if (collectionName === "homework") {
-      list = database.homework;
-    } else if (collectionName === "resources") {
-      list = database.resources;
-    }
-
-    if (constraints && constraints.length > 0) {
-      constraints.forEach((constraint) => {
-        if (constraint.type === "where") {
-          const { field, op, value } = constraint;
-          list = list.filter((item) => {
-            if (op === "==") return item[field] === value;
-            return true;
-          });
-        }
-      });
-    }
-
-    return {
-      docs: list.map((item) => ({
-        id: item.id || item.uid,
-        data: () => item,
-      })),
-    };
+  const { collectionName, constraints } = queryOrColRef;
+  let url = `${API_URL}/${collectionName}`;
+  if (constraints && constraints.length > 0) {
+    const params = new URLSearchParams();
+    constraints.forEach((c) => {
+      if (c.type === "where" && c.op === "==") params.append(c.field, c.value);
+    });
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
   }
-  return fbGetDocs(queryOrColRef);
-};
-
-export const query = (colRef, ...constraints) => {
-  if (!isFirebaseConfigured) {
-    return { ...colRef, constraints };
-  }
-  return fbQuery(colRef, ...constraints);
-};
-
-export const where = (field, op, value) => {
-  if (!isFirebaseConfigured) {
-    return { type: "where", field, op, value };
-  }
-  return fbWhere(field, op, value);
+  const res = await fetch(url, { headers: getHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch documents");
+  const list = await res.json();
+  return { docs: list.map((item) => ({ id: item.id, data: () => item })), empty: list.length === 0 };
 };
 
 export const addDoc = async (colRef, data) => {
-  if (!isFirebaseConfigured) {
-    const database = getMockDb();
-    const { collectionName } = colRef;
-    const newId = Math.random().toString(36).substring(2, 9);
-    const newDoc = { ...data, id: newId };
-
-    if (collectionName === "students") {
-      database.students.push(newDoc);
-    } else if (collectionName === "teachers") {
-      database.teachers.push(newDoc);
-    } else if (collectionName === "notices") {
-      database.notices.push(newDoc);
-    } else if (collectionName === "leaveRequests") {
-      database.leaveRequests.push(newDoc);
-    } else if (collectionName === "feePaymentRequests") {
-      database.feePaymentRequests.push(newDoc);
-    } else if (collectionName === "salarySlips") {
-      database.salarySlips.push(newDoc);
-    } else if (collectionName === "homework") {
-      database.homework.push(newDoc);
-    } else if (collectionName === "resources") {
-      database.resources.push(newDoc);
-    }
-
-    saveMockDb(database);
-    return { id: newId };
+  const { collectionName } = colRef;
+  const res = await fetch(`${API_URL}/${collectionName}`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to add document");
   }
-  return fbAddDoc(colRef, data);
+  const saved = await res.json();
+  return { id: saved.id };
 };
 
-export const getRawMockDb = () => getMockDb();
-export const resetMockDb = () => {
-  localStorage.removeItem(MOCK_STORAGE_KEY);
-  getMockDb();
-};
-export const isMockMode = !isFirebaseConfigured;
+export const isMockMode = false;

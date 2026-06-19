@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from "react";
 import {
   auth,
@@ -10,7 +9,7 @@ import {
   getDoc,
   setDoc,
 } from "../firebase";
-import { error as logError } from "../utils/logger";
+
 
 const AuthContext = createContext();
 
@@ -25,77 +24,57 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user);
+
+        // 1. Role may already be on the user object (from mock auth or cached session)
+        if (user.role) {
+          setUserData({
+            uid: user.uid,
+            email: user.email,
+            name: user.displayName || user.name || user.email,
+            role: user.role,
+            studentId: user.studentId,
+            class: user.class,
+            section: user.section,
+          });
+          setLoading(false);
+          return;
+        }
+
+        // 2. Try to get profile from backend (when real backend is running)
         try {
           const docRef = doc(db, "users", user.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
-            // Force role override for demo emails to ensure correct redirection/access
+            // Email-based role override for demo accounts
             if (user.email) {
-              const emailLower = user.email.toLowerCase();
-              if (emailLower === "webadmin@school.com") {
-                data.role = "webadmin";
-              } else if (emailLower === "admin@school.com") {
-                data.role = "admin";
-              } else if (emailLower === "teacher@school.com") {
-                data.role = "teacher";
-              }
+              const em = user.email.toLowerCase();
+              if (em === "webadmin@school.com") data.role = "webadmin";
+              else if (em === "admin@school.com") data.role = "admin";
+              else if (em === "teacher@school.com") data.role = "teacher";
+              else if (em === "parent@school.com") data.role = "parent";
             }
             setUserData(data);
           } else {
-            // Seed demo roles on-demand for live Firebase
+            // Infer role from email
+            const em = user.email?.toLowerCase() || "";
             let role = "parent";
-            let name = user.displayName || "Parent User";
-
-            if (user.email.toLowerCase() === "admin@school.com") {
-              role = "admin";
-              name = "Principal Sarah Jenkins";
-            } else if (user.email.toLowerCase() === "webadmin@school.com") {
-              role = "webadmin";
-              name = "Web Content Manager";
-            } else if (user.email.toLowerCase() === "teacher@school.com") {
-              role = "teacher";
-              name = "Mr. Robert Harrison";
-            }
-
-            const newProfile = { uid: user.uid, email: user.email, name, role };
-            await setDoc(docRef, newProfile);
-            setUserData(newProfile);
+            let name = user.displayName || "User";
+            if (em === "admin@school.com") { role = "admin"; name = "Admin User"; }
+            else if (em === "webadmin@school.com") { role = "webadmin"; name = "Web Admin"; }
+            else if (em === "teacher@school.com") { role = "teacher"; name = "Teacher User"; }
+            const profile = { uid: user.uid, email: user.email, name, role };
+            try { await setDoc(docRef, profile); } catch { /* ignore */ }
+            setUserData(profile);
           }
-        } catch (error) {
-          logError("Error fetching user data from Firestore:", error);
-          // FALLBACK: Read from local storage mock database
-          const mockDb = localStorage.getItem("school_erp_mock_db");
-          if (mockDb) {
-            const parsed = JSON.parse(mockDb);
-            const matchedUser = Object.values(parsed.users).find(
-              (u) =>
-                u.email.toLowerCase() === user.email.toLowerCase() ||
-                u.uid === user.uid,
-            );
-            if (matchedUser) {
-              setUserData(matchedUser);
-              setLoading(false);
-              return;
-            }
-          }
-
-          // Fallback based on email domain/patterns
+        } catch {
+          // Backend down — fallback to email-based role
+          const em = user.email?.toLowerCase() || "";
           let role = "parent";
-          let name = user.displayName || "Parent User";
-          if (user.email) {
-            const emailLower = user.email.toLowerCase();
-            if (emailLower === "admin@school.com") {
-              role = "admin";
-              name = "Principal Sarah Jenkins";
-            } else if (emailLower === "webadmin@school.com") {
-              role = "webadmin";
-              name = "Web Content Manager";
-            } else if (emailLower === "teacher@school.com") {
-              role = "teacher";
-              name = "Mr. Robert Harrison";
-            }
-          }
+          let name = user.displayName || user.email || "User";
+          if (em === "admin@school.com") { role = "admin"; name = "Admin User"; }
+          else if (em === "webadmin@school.com") { role = "webadmin"; name = "Web Admin"; }
+          else if (em === "teacher@school.com") { role = "teacher"; name = "Teacher User"; }
           setUserData({ uid: user.uid, email: user.email, role, name });
         }
       } else {
